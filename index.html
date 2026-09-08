@@ -281,10 +281,7 @@
 
   <!-- TELA: RESULTADO -->
   <section class="screen" id="screen-resultado">
-    <div class="backbar">
-      <button class="ghost" onclick="irPara('corrigir')">← Nova correção</button>
-      <h2>Resultado</h2>
-    </div>
+    <button class="block" style="background:var(--gold); color:#fff; font-size:15px; padding:14px 16px; margin-bottom:14px;" onclick="abrirMenuNovaCorrecao()">+ Nova correção</button>
     <div id="resultadoConteudo"></div>
   </section>
 
@@ -796,9 +793,11 @@ async function salvarCorrecao({turmaId, alunoId, provaId, tema, valor, resultado
 }
 
 let pendingCtx = null;
+let resultadoTurmaIdAtual = null;
 
 function mostrarResultadoPendente(ctx){
   pendingCtx = ctx;
+  resultadoTurmaIdAtual = ctx.turmaId;
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById('screen-resultado').classList.add('active');
   const nota = calcularNota(ctx.resultado, ctx.valor);
@@ -856,10 +855,40 @@ function confirmarAcao(mensagem, aoConfirmar){
 function mostrarResultado(resultado, valor, nomeAluno, tema, correcaoId){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById('screen-resultado').classList.add('active');
+  const rec = correcaoId ? correcoes.find(c=>c.id===correcaoId) : null;
+  resultadoTurmaIdAtual = rec ? rec.turmaId : null;
   const nota = calcularNota(resultado, valor);
   const el = document.getElementById('resultadoConteudo');
   const acoes = correcaoId ? `<div class="card"><button class="danger block" onclick="excluirCorrecao('${correcaoId}')">Excluir esta correção</button></div>` : '';
   el.innerHTML = acoes + renderResultadoHTML(resultado, valor, nota, nomeAluno, tema, correcaoId);
+}
+
+function abrirMenuNovaCorrecao(){
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed; inset:0; background:rgba(27,42,74,.55); z-index:110; display:flex; align-items:flex-end; justify-content:center;';
+  const box = document.createElement('div');
+  box.style.cssText = 'background:var(--paper-raised); border-radius:var(--radius) var(--radius) 0 0; padding:8px 0 max(16px, calc(8px + env(safe-area-inset-bottom))); width:100%; max-width:480px;';
+  box.innerHTML = `
+    <button id="menuCadastrarAluno" style="display:block; width:100%; text-align:left; background:none; border:none; padding:16px 20px; font-size:15px; color:var(--ink); border-bottom:1px solid var(--line);">Cadastrar novo aluno</button>
+    <button id="menuLancarCorrecao" style="display:block; width:100%; text-align:left; background:none; border:none; padding:16px 20px; font-size:15px; color:var(--ink); border-bottom:1px solid var(--line);">Lançar nova correção</button>
+    <button id="menuCancelar" style="display:block; width:100%; text-align:center; background:none; border:none; padding:16px 20px; font-size:15px; color:var(--ink-soft);">Cancelar</button>
+  `;
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  overlay.onclick = (e)=>{ if(e.target === overlay) overlay.remove(); };
+  document.getElementById('menuCancelar').onclick = ()=>overlay.remove();
+  document.getElementById('menuCadastrarAluno').onclick = ()=>{
+    overlay.remove();
+    if(resultadoTurmaIdAtual && turmas.find(t=>t.id===resultadoTurmaIdAtual)){
+      abrirTurma(resultadoTurmaIdAtual);
+    } else {
+      irPara('turmas');
+    }
+  };
+  document.getElementById('menuLancarCorrecao').onclick = ()=>{
+    overlay.remove();
+    irPara('corrigir');
+  };
 }
 
 function renderResultadoHTML(resultado, valor, nota, nomeAluno, tema, correcaoId){
