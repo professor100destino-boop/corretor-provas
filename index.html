@@ -650,21 +650,17 @@ async function enviarCorrecao(){
   const aluno = alunos.find(a=>a.id===alunoId);
   const base64Fotos = fotosAtuais.map(src=>src.split(',')[1]);
 
-  const instrucao = `Você está corrigindo uma prova de História do ensino médio brasileiro. As imagens mostram as páginas da prova de um aluno chamado ${aluno ? aluno.nome : ''}, incluindo os textos de referência, os enunciados e as respostas marcadas ou escritas à mão.
+  const instrucao = `Você está corrigindo uma prova de História do ensino médio brasileiro. As imagens são páginas sequenciais da mesma prova de um aluno chamado ${aluno ? aluno.nome : ''}: textos de referência, enunciados e respostas marcadas ou escritas à mão. Uma questão pode começar no fim de uma foto e continuar no início da próxima — trate as fotos como um documento contínuo.
 
-Sua tarefa:
-1. Para cada questão objetiva (múltipla escolha), identifique a alternativa marcada pelo aluno (procure círculos, "x" ou marcações) e determine qual é a alternativa correta, usando o texto de referência da própria prova e seu conhecimento histórico.
-2. Para cada questão discursiva, leia a resposta manuscrita do aluno e avalie a qualidade e correção do conteúdo, considerando o que foi pedido no enunciado. Dê uma fração de acerto de 0 a 1 (ex: 1 = resposta completa e correta, 0.5 = parcialmente correta ou incompleta, 0 = errada ou em branco).
-3. Nas objetivas, só escreva comentário quando o aluno errar (deixe "" quando acertar). Nas discursivas, sempre escreva um comentário curto. Comentários com no máximo 8 palavras, em português, direto.
-4. IMPORTANTE: inclua TODAS as questões discursivas da prova no array "discursivas", uma por uma, mesmo que a resposta esteja ilegível ou em branco (nesse caso use fracao 0 e comentario "ilegível" ou "em branco"). Nunca omita o array "discursivas" nem deixe faltar questões.
-5. Se perceber que falta alguma página da prova (por exemplo, a numeração das questões pula de 3 para 8, sem as questões 4 a 7 aparecerem em nenhuma imagem), inclua um campo "paginas_faltando" no JSON com uma frase curta avisando isso, e marque as questões ausentes com resposta_aluno "página não enviada".
-6. IMPORTANTE: as fotos são páginas sequenciais da MESMA prova, e uma questão pode começar no final de uma foto e continuar no início da próxima (o enunciado "X. Leia o texto de referência" pode aparecer no fim de uma página, com o texto de referência e as alternativas aparecendo já na página seguinte, sem repetir o número). Trate o conjunto de fotos como um documento único e contínuo: se um bloco de texto de referência com alternativas aparecer logo após o cabeçalho de uma questão (mesmo que em foto diferente), ele pertence a essa questão. Só marque uma questão como ausente se o enunciado, o texto de referência E as alternativas realmente não aparecerem em nenhuma foto.
-7. CRITÉRIO PARA CLASSIFICAR O TIPO DE QUESTÃO: se a questão tem alternativas com letras (A, B, C, D, E) pra marcar, ela é SEMPRE objetiva e vai no array "objetivas" — nunca no array "discursivas", mesmo que a IA tenha dúvida sobre qual alternativa foi marcada. Só vai em "discursivas" a questão que pede uma resposta escrita livre, sem alternativas de múltipla escolha.
+Regras:
+1. Questão com alternativas de letra (A a E) é sempre objetiva, vai em "objetivas". Questão de resposta escrita livre vai em "discursivas".
+2. Nas objetivas: identifique a marcação do aluno (círculo, X) e a alternativa correta. Comentário só quando errar (senão "").
+3. Nas discursivas: dê fracao de 0 a 1 e um comentário curto (até 8 palavras).
+4. Se não achar a resposta do aluno em alguma questão, use "não identificado".
+5. Inclua todas as questões da prova, mesmo com resposta ilegível ou em branco (fracao 0 nesse caso).
 
-Responda APENAS com um JSON válido, sem markdown, sem texto antes ou depois, no formato exato:
-{"objetivas":[{"numero":1,"resposta_aluno":"B","resposta_correta":"B","correta":true,"comentario":"..."}],"discursivas":[{"numero":8,"fracao":0.5,"comentario":"..."}],"observacao_geral":"uma frase curta sobre o desempenho geral","paginas_faltando":""}
-
-Se não conseguir identificar a resposta do aluno em alguma questão, marque resposta_aluno como "não identificado" e trate como errada. Não inclua nenhum texto fora do JSON.`;
+Responda APENAS com JSON válido, sem markdown, neste formato exato:
+{"objetivas":[{"numero":1,"resposta_aluno":"B","resposta_correta":"B","correta":true,"comentario":""}],"discursivas":[{"numero":8,"fracao":0.5,"comentario":"..."}],"observacao_geral":"frase curta sobre o desempenho geral"}`;
 
   const imageBlocks = base64Fotos.map(b64=>({
     type: 'image',
@@ -683,7 +679,7 @@ Se não conseguir identificar a resposta do aluno em alguma questão, marque res
       },
       body: JSON.stringify({
         model: modelo,
-        max_tokens: 1600,
+        max_tokens: 3000,
         messages: [{role:'user', content}]
       })
     });
