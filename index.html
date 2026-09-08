@@ -537,12 +537,28 @@ function handleFotos(ev){
   ev.target.value = '';
 }
 function resizeImage(file){
+  const maxW = 1400;
+  if(window.createImageBitmap){
+    return createImageBitmap(file, { imageOrientation: 'from-image' })
+      .then(bitmap=>{
+        const scale = Math.min(1, maxW / bitmap.width);
+        const w = Math.round(bitmap.width * scale);
+        const h = Math.round(bitmap.height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+        return canvas.toDataURL('image/jpeg', 0.72);
+      })
+      .catch(()=>resizeImageFallback(file, maxW));
+  }
+  return resizeImageFallback(file, maxW);
+}
+function resizeImageFallback(file, maxW){
   return new Promise((resolve)=>{
     const img = new Image();
     const reader = new FileReader();
     reader.onload = e=>{ img.src = e.target.result; };
     img.onload = ()=>{
-      const maxW = 1400;
       const scale = Math.min(1, maxW / img.width);
       const w = Math.round(img.width * scale);
       const h = Math.round(img.height * scale);
