@@ -559,21 +559,34 @@ function handleFotos(ev){
   ev.target.value = '';
 }
 function resizeImage(file){
-  return new Promise((resolve)=>{
-    const img = new Image();
-    const reader = new FileReader();
-    reader.onload = e=>{ img.src = e.target.result; };
-    img.onload = ()=>{
-      const maxW = 1250;
-      const scale = Math.min(1, maxW / img.width);
-      const w = Math.round(img.width * scale);
-      const h = Math.round(img.height * scale);
+  return new Promise((resolve, reject)=>{
+    const maxW = 1250;
+    const desenhar = (imgLike, w0, h0)=>{
+      const scale = Math.min(1, maxW / w0);
+      const w = Math.round(w0 * scale);
+      const h = Math.round(h0 * scale);
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      canvas.getContext('2d').drawImage(imgLike, 0, 0, w, h);
       resolve(canvas.toDataURL('image/jpeg', 0.68));
     };
-    reader.readAsDataURL(file);
+    if(window.createImageBitmap){
+      createImageBitmap(file, { imageOrientation: 'from-image' })
+        .then(bitmap => desenhar(bitmap, bitmap.width, bitmap.height))
+        .catch(()=>{
+          const img = new Image();
+          const reader = new FileReader();
+          reader.onload = e=>{ img.src = e.target.result; };
+          img.onload = ()=> desenhar(img, img.width, img.height);
+          reader.readAsDataURL(file);
+        });
+    } else {
+      const img = new Image();
+      const reader = new FileReader();
+      reader.onload = e=>{ img.src = e.target.result; };
+      img.onload = ()=> desenhar(img, img.width, img.height);
+      reader.readAsDataURL(file);
+    }
   });
 }
 function renderFotoGrid(){
@@ -646,6 +659,7 @@ Sua tarefa:
 4. IMPORTANTE: inclua TODAS as questões discursivas da prova no array "discursivas", uma por uma, mesmo que a resposta esteja ilegível ou em branco (nesse caso use fracao 0 e comentario "ilegível" ou "em branco"). Nunca omita o array "discursivas" nem deixe faltar questões.
 5. Se perceber que falta alguma página da prova (por exemplo, a numeração das questões pula de 3 para 8, sem as questões 4 a 7 aparecerem em nenhuma imagem), inclua um campo "paginas_faltando" no JSON com uma frase curta avisando isso, e marque as questões ausentes com resposta_aluno "página não enviada".
 6. IMPORTANTE: as fotos são páginas sequenciais da MESMA prova, e uma questão pode começar no final de uma foto e continuar no início da próxima (o enunciado "X. Leia o texto de referência" pode aparecer no fim de uma página, com o texto de referência e as alternativas aparecendo já na página seguinte, sem repetir o número). Trate o conjunto de fotos como um documento único e contínuo: se um bloco de texto de referência com alternativas aparecer logo após o cabeçalho de uma questão (mesmo que em foto diferente), ele pertence a essa questão. Só marque uma questão como ausente se o enunciado, o texto de referência E as alternativas realmente não aparecerem em nenhuma foto.
+7. CRITÉRIO PARA CLASSIFICAR O TIPO DE QUESTÃO: se a questão tem alternativas com letras (A, B, C, D, E) pra marcar, ela é SEMPRE objetiva e vai no array "objetivas" — nunca no array "discursivas", mesmo que a IA tenha dúvida sobre qual alternativa foi marcada. Só vai em "discursivas" a questão que pede uma resposta escrita livre, sem alternativas de múltipla escolha.
 
 Responda APENAS com um JSON válido, sem markdown, sem texto antes ou depois, no formato exato:
 {"objetivas":[{"numero":1,"resposta_aluno":"B","resposta_correta":"B","correta":true,"comentario":"..."}],"discursivas":[{"numero":8,"fracao":0.5,"comentario":"..."}],"observacao_geral":"uma frase curta sobre o desempenho geral","paginas_faltando":""}
