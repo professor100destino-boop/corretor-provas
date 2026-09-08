@@ -262,7 +262,7 @@
         </div>
         <input type="file" id="inputFoto" accept="image/*" capture="environment" multiple style="display:none" onchange="handleFotos(event)">
       </div>
-      <button class="primary block" id="btnEnviar" onclick="enviarCorrecao()">Corrigir com IA</button>
+      <button class="primary block" id="btnEnviar" style="margin-top:22px;" onclick="enviarCorrecao()">Corrigir com IA</button>
     </div>
   </section>
 
@@ -582,6 +582,9 @@ async function enviarCorrecao(){
   const tema = prova ? prova.nome : '';
   const valor = prova ? prova.valor : 10;
   if(fotosAtuais.length === 0){ toast('Adicione ao menos uma foto da prova.'); return; }
+  const qtd = fotosAtuais.length;
+  const confirmado = confirm(`Você anexou ${qtd} foto${qtd===1?'':'s'} (${qtd} página${qtd===1?'':'s'}). Confirma o envio pra correção?`);
+  if(!confirmado) return;
 
   const apiKey = await getStore('apiKey', '');
   if(!apiKey){
