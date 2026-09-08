@@ -286,8 +286,27 @@
   <!-- TELA: AJUSTES -->
   <section class="screen" id="screen-ajustes">
     <div class="card">
-      <h2>Chave da API</h2>
-      <p class="muted">Para corrigir com IA, o app precisa de uma chave da API da Anthropic (Claude). Você cria a sua e paga só pelo uso — cada correção custa poucos centavos.</p>
+      <h2>Provedor de IA</h2>
+      <p class="muted">Escolha qual serviço vai corrigir as provas. O Gemini tem uma camada gratuita; o Anthropic é pago, mas mais preciso.</p>
+      <div class="field" style="margin-top:10px;">
+        <select id="provedorSelect" onchange="mudarProvedor()">
+          <option value="gemini">Google Gemini (gratuito)</option>
+          <option value="anthropic">Anthropic Claude (pago)</option>
+        </select>
+      </div>
+    </div>
+    <div class="card" id="cardChaveGemini">
+      <h2>Chave da API do Gemini</h2>
+      <p class="muted">Crie de graça em <b>aistudio.google.com/apikey</b>, entrando com sua conta Google e clicando em "Create API key". Copie e cole aqui.</p>
+      <div class="field" style="margin-top:10px;">
+        <label>Sua chave (começa com AIza...)</label>
+        <input type="text" id="geminiKeyInput" placeholder="AIza...">
+      </div>
+      <button class="primary block" onclick="salvarGeminiKey()">Salvar chave</button>
+    </div>
+    <div class="card" id="cardChaveAnthropic">
+      <h2>Chave da API da Anthropic</h2>
+      <p class="muted">Você cria a sua e paga só pelo uso — cada correção custa poucos centavos.</p>
       <div class="field" style="margin-top:12px;">
         <label>Sua chave (começa com sk-ant-...)</label>
         <input type="text" id="apiKeyInput" placeholder="sk-ant-...">
@@ -297,7 +316,7 @@
         Como conseguir: acesse <b>console.anthropic.com</b>, crie uma conta, adicione um cartão em "Billing" e depois vá em "API Keys" → "Create Key". Copie e cole aqui.
       </p>
     </div>
-    <div class="card">
+    <div class="card" id="cardModeloAnthropic">
       <h2>Modelo de correção</h2>
       <p class="muted">O modelo econômico gasta bem menos crédito por correção. Use o preciso se a letra do aluno for difícil ou a correção sair errada.</p>
       <div class="field" style="margin-top:10px;">
@@ -410,10 +429,32 @@ function irPara(tab){
 }
 
 async function carregarApiKeyInput(){
+  const provedor = await getStore('provedor', 'gemini');
+  document.getElementById('provedorSelect').value = provedor;
+  atualizarCardsProvedor(provedor);
   const key = await getStore('apiKey', '');
   document.getElementById('apiKeyInput').value = key;
   const modelo = await getStore('modelo', 'claude-sonnet-5');
   document.getElementById('modeloSelect').value = modelo;
+  const geminiKey = await getStore('geminiKey', '');
+  document.getElementById('geminiKeyInput').value = geminiKey;
+}
+function atualizarCardsProvedor(provedor){
+  document.getElementById('cardChaveAnthropic').style.display = provedor === 'anthropic' ? 'block' : 'none';
+  document.getElementById('cardModeloAnthropic').style.display = provedor === 'anthropic' ? 'block' : 'none';
+  document.getElementById('cardChaveGemini').style.display = provedor === 'gemini' ? 'block' : 'none';
+}
+async function mudarProvedor(){
+  const val = document.getElementById('provedorSelect').value;
+  await saveStore('provedor', val);
+  atualizarCardsProvedor(val);
+  toast('Provedor atualizado!');
+}
+async function salvarGeminiKey(){
+  const val = document.getElementById('geminiKeyInput').value.trim();
+  if(!val){ toast('Cole sua chave antes de salvar.'); return; }
+  await saveStore('geminiKey', val);
+  toast('Chave salva!');
 }
 async function salvarApiKey(){
   const val = document.getElementById('apiKeyInput').value.trim();
@@ -621,23 +662,29 @@ async function enviarCorrecao(){
   const confirmado = confirm(`Você anexou ${qtd} foto${qtd===1?'':'s'} (${qtd} página${qtd===1?'':'s'}). Confirma o envio pra correção?`);
   if(!confirmado) return;
 
-  const apiKey = await getStore('apiKey', '');
-  if(!apiKey){
-    toast('Configure sua chave da API em Ajustes primeiro.');
-    irPara('ajustes');
-    return;
+  const provedor = await getStore('provedor', 'gemini');
+  let apiKey;
+  if(provedor === 'gemini'){
+    apiKey = await getStore('geminiKey', '');
+    if(!apiKey){
+      toast('Configure sua chave do Gemini em Ajustes primeiro.');
+      irPara('ajustes');
+      return;
+    }
+  } else {
+    apiKey = await getStore('apiKey', '');
+    if(!apiKey){
+      toast('Configure sua chave da API em Ajustes primeiro.');
+      irPara('ajustes');
+      return;
+    }
   }
-  const modelo = await getStore('modelo', 'claude-sonnet-5');
 
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById('screen-loading').classList.add('active');
 
   const aluno = alunos.find(a=>a.id===alunoId);
-
-  const imageBlocks = fotosAtuais.map(src=>({
-    type: 'image',
-    source: { type: 'base64', media_type: 'image/jpeg', data: src.split(',')[1] }
-  }));
+  const base64Fotos = fotosAtuais.map(src=>src.split(',')[1]);
 
   const instrucao = `Você está corrigindo uma prova de História do ensino médio brasileiro. As imagens mostram as páginas da prova de um aluno chamado ${aluno ? aluno.nome : ''}, incluindo os textos de referência, os enunciados e as respostas marcadas ou escritas à mão.
 
@@ -653,28 +700,10 @@ Responda APENAS com um JSON válido, sem markdown, sem texto antes ou depois, no
 
 Se não conseguir identificar a resposta do aluno em alguma questão, marque resposta_aluno como "não identificado" e trate como errada. Não inclua nenhum texto fora do JSON.`;
 
-  const content = [...imageBlocks, {type:'text', text: instrucao}];
-
   try{
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type':'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: modelo,
-        max_tokens: 1600,
-        messages: [{role:'user', content}]
-      })
-    });
-    const data = await response.json();
-    if(data.error){ throw new Error(data.error.message || 'Erro na API'); }
-    const textBlocks = (data.content || []).filter(b=>b.type==='text').map(b=>b.text).join('\n');
-    const clean = textBlocks.replace(/```json|```/g,'').trim();
-    const resultado = JSON.parse(clean);
+    const resultado = provedor === 'gemini'
+      ? await chamarGemini(apiKey, instrucao, base64Fotos)
+      : await chamarAnthropic(apiKey, await getStore('modelo', 'claude-sonnet-5'), instrucao, base64Fotos);
     mostrarResultadoPendente({turmaId, alunoId, provaId, tema, valor, resultado, nomeAluno: aluno ? aluno.nome : ''});
   }catch(err){
     console.error(err);
@@ -682,6 +711,55 @@ Se não conseguir identificar a resposta do aluno em alguma questão, marque res
     document.getElementById('screen-corrigir').classList.add('active');
     toast('Não consegui corrigir: ' + err.message);
   }
+}
+
+async function chamarAnthropic(apiKey, modelo, instrucao, base64Fotos){
+  const imageBlocks = base64Fotos.map(b64=>({
+    type: 'image',
+    source: { type: 'base64', media_type: 'image/jpeg', data: b64 }
+  }));
+  const content = [...imageBlocks, {type:'text', text: instrucao}];
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type':'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: modelo,
+      max_tokens: 1600,
+      messages: [{role:'user', content}]
+    })
+  });
+  const data = await response.json();
+  if(data.error){ throw new Error(data.error.message || 'Erro na API Anthropic'); }
+  const textBlocks = (data.content || []).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+  const clean = textBlocks.replace(/```json|```/g,'').trim();
+  return JSON.parse(clean);
+}
+
+async function chamarGemini(apiKey, instrucao, base64Fotos){
+  const parts = base64Fotos.map(b64=>({ inline_data: { mime_type: 'image/jpeg', data: b64 } }));
+  parts.push({ text: instrucao });
+  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey
+    },
+    body: JSON.stringify({
+      contents: [{ parts }],
+      generationConfig: { maxOutputTokens: 1600 }
+    })
+  });
+  const data = await response.json();
+  if(data.error){ throw new Error(data.error.message || 'Erro na API Gemini'); }
+  const cand = (data.candidates && data.candidates[0]) || {};
+  const textBlocks = ((cand.content && cand.content.parts) || []).map(p=>p.text || '').join('\n');
+  const clean = textBlocks.replace(/```json|```/g,'').trim();
+  return JSON.parse(clean);
 }
 
 function calcularNota(resultado, valor){
