@@ -241,6 +241,10 @@
 
   <!-- TELA: NOVA CORREÇÃO -->
   <section class="screen" id="screen-corrigir">
+    <div id="erroCorrecaoBox" style="display:none; background:var(--red-soft); color:var(--red); padding:12px 14px; border-radius:var(--radius); margin-bottom:12px; font-size:13.5px; font-weight:600;">
+      <div id="erroCorrecaoTexto" style="margin-bottom:8px;"></div>
+      <button class="ghost" style="background:#fff;" onclick="document.getElementById('erroCorrecaoBox').style.display='none'">Fechar aviso</button>
+    </div>
     <div class="card">
       <h2>Nova correção</h2>
       <div class="field">
@@ -515,6 +519,7 @@ function renderProvas(){
 
 // ---------- preparar tela de correção ----------
 function prepararCorrecao(){
+  document.getElementById('erroCorrecaoBox').style.display = 'none';
   const selT = document.getElementById('corrTurma');
   selT.innerHTML = turmas.map(t=>`<option value="${t.id}">${esc(t.nome)}</option>`).join('') || '<option value="">Cadastre uma turma primeiro</option>';
   if(turmaAtualId && turmas.find(t=>t.id===turmaAtualId)){
@@ -617,9 +622,6 @@ async function enviarCorrecao(){
   const tema = prova ? prova.nome : '';
   const valor = prova ? prova.valor : 10;
   if(fotosAtuais.length === 0){ toast('Adicione ao menos uma foto da prova.'); return; }
-  const qtd = fotosAtuais.length;
-  const confirmado = confirm(`Você anexou ${qtd} foto${qtd===1?'':'s'} (${qtd} página${qtd===1?'':'s'}). Confirma o envio pra correção?`);
-  if(!confirmado) return;
 
   const apiKey = await getStore('apiKey', '');
   if(!apiKey){
@@ -680,7 +682,10 @@ Se não conseguir identificar a resposta do aluno em alguma questão, marque res
     console.error(err);
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
     document.getElementById('screen-corrigir').classList.add('active');
-    toast('Não consegui corrigir: ' + err.message);
+    const box = document.getElementById('erroCorrecaoBox');
+    document.getElementById('erroCorrecaoTexto').textContent = 'Não consegui corrigir: ' + err.message;
+    box.style.display = 'block';
+    toast('Não consegui corrigir.');
   }
 }
 
@@ -739,11 +744,28 @@ function descartarCorrecaoPendente(){
 }
 
 function excluirCorrecao(id){
-  if(!confirm('Excluir esta correção? Não dá pra desfazer.')) return;
-  correcoes = correcoes.filter(c=>c.id!==id);
-  saveStore('correcoes', correcoes);
-  toast('Correção excluída.');
-  irPara('historico');
+  confirmarAcao('Excluir esta correção? Não dá pra desfazer.', ()=>{
+    correcoes = correcoes.filter(c=>c.id!==id);
+    saveStore('correcoes', correcoes);
+    toast('Correção excluída.');
+    irPara('historico');
+  });
+}
+
+function confirmarAcao(mensagem, aoConfirmar){
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed; inset:0; background:rgba(27,42,74,.55); z-index:110; display:flex; align-items:center; justify-content:center; padding:24px;';
+  const box = document.createElement('div');
+  box.style.cssText = 'background:var(--paper-raised); border-radius:var(--radius); padding:20px; max-width:340px; width:100%;';
+  box.innerHTML = `<p style="margin:0 0 16px; font-size:14.5px; color:var(--ink);">${esc(mensagem)}</p>
+    <div class="row">
+      <button class="ghost" id="confirmarCancelar">Cancelar</button>
+      <button class="danger" id="confirmarOk">Confirmar</button>
+    </div>`;
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  document.getElementById('confirmarCancelar').onclick = ()=>overlay.remove();
+  document.getElementById('confirmarOk').onclick = ()=>{ overlay.remove(); aoConfirmar(); };
 }
 
 function mostrarResultado(resultado, valor, nomeAluno, tema, correcaoId){
