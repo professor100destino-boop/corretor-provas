@@ -262,9 +262,10 @@
       <div class="field">
         <label>Fotos da prova (todas as páginas)</label>
         <div class="photo-grid" id="fotoGrid">
-          <label class="add-photo-btn" for="inputFoto">+</label>
+          <button class="add-photo-btn" onclick="abrirCamera()">+</button>
         </div>
-        <input type="file" id="inputFoto" accept="image/*" capture="environment" multiple style="display:none" onchange="handleFotos(event)">
+        <p class="muted" style="margin-top:6px;">Ou <span style="text-decoration:underline; cursor:pointer;" onclick="document.getElementById('inputFoto').click()">escolher da galeria</span>.</p>
+        <input type="file" id="inputFoto" accept="image/*" multiple style="display:none" onchange="handleFotos(event)">
       </div>
       <button class="primary block" id="btnEnviar" style="margin-top:22px;" onclick="enviarCorrecao()">Corrigir com IA</button>
     </div>
@@ -343,6 +344,17 @@
     Ajustes
   </button>
 </nav>
+
+<div id="cameraOverlay" style="display:none; position:fixed; inset:0; background:#000; z-index:200; flex-direction:column;">
+  <video id="cameraVideo" autoplay playsinline muted style="width:100%; flex:1; object-fit:cover; background:#000;"></video>
+  <div style="display:flex; justify-content:space-between; align-items:center; padding:18px 24px; padding-bottom:calc(18px + env(safe-area-inset-bottom)); background:#000;">
+    <button onclick="fecharCamera()" style="background:#333; color:#fff; border-radius:50%; width:52px; height:52px; font-size:13px;">Fechar</button>
+    <button onclick="capturarFoto()" style="width:72px; height:72px; border-radius:50%; background:#fff; border:4px solid #888;"></button>
+    <button id="btnFlashToggle" onclick="alternarFlash()" style="background:#333; color:#fff; border-radius:50%; width:52px; height:52px; font-size:20px;">⚡</button>
+  </div>
+  <div id="cameraContador" style="position:absolute; top:16px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.6); color:#fff; padding:6px 14px; border-radius:20px; font-size:13px;"></div>
+</div>
+<canvas id="cameraCanvas" style="display:none;"></canvas>
 
 <script>
 // ---------- estado ----------
@@ -584,13 +596,78 @@ function renderFotoGrid(){
     div.innerHTML = `<img src="${src}"><button class="rm" onclick="removerFoto(${i})">×</button>`;
     grid.appendChild(div);
   });
-  const addBtn = document.createElement('label');
+  const addBtn = document.createElement('button');
   addBtn.className = 'add-photo-btn';
-  addBtn.setAttribute('for', 'inputFoto');
+  addBtn.onclick = abrirCamera;
   addBtn.textContent = '+';
   grid.appendChild(addBtn);
 }
 function removerFoto(i){ fotosAtuais.splice(i,1); renderFotoGrid(); }
+
+// ---------- câmera própria com controle de flash ----------
+let cameraStream = null;
+let flashLigado = false;
+
+async function abrirCamera(){
+  try{
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false
+    });
+  }catch(err){
+    toast('Não consegui acessar a câmera: ' + err.message);
+    return;
+  }
+  document.getElementById('cameraVideo').srcObject = cameraStream;
+  document.getElementById('cameraOverlay').style.display = 'flex';
+  atualizarContadorCamera();
+  await ligarFlashSePossivel(true);
+}
+
+async function ligarFlashSePossivel(ligar){
+  if(!cameraStream) return;
+  const track = cameraStream.getVideoTracks()[0];
+  if(!track || !track.getCapabilities){ document.getElementById('btnFlashToggle').style.display = 'none'; return; }
+  const capacidades = track.getCapabilities();
+  if(!capacidades.torch){
+    document.getElementById('btnFlashToggle').style.display = 'none';
+    return;
+  }
+  try{
+    await track.applyConstraints({ advanced: [{ torch: ligar }] });
+    flashLigado = ligar;
+    document.getElementById('btnFlashToggle').style.opacity = flashLigado ? '1' : '0.5';
+  }catch(e){
+    // alguns aparelhos anunciam suporte mas recusam; ignora silenciosamente
+  }
+}
+function alternarFlash(){ ligarFlashSePossivel(!flashLigado); }
+
+function fecharCamera(){
+  if(cameraStream){
+    cameraStream.getTracks().forEach(t=>t.stop());
+    cameraStream = null;
+  }
+  document.getElementById('cameraOverlay').style.display = 'none';
+}
+
+function atualizarContadorCamera(){
+  document.getElementById('cameraContador').textContent = `${fotosAtuais.length} foto${fotosAtuais.length===1?'':'s'} tirada${fotosAtuais.length===1?'':'s'}`;
+}
+
+function capturarFoto(){
+  const video = document.getElementById('cameraVideo');
+  const canvas = document.getElementById('cameraCanvas');
+  const maxW = 1400;
+  const scale = Math.min(1, maxW / video.videoWidth);
+  const w = Math.round(video.videoWidth * scale);
+  const h = Math.round(video.videoHeight * scale);
+  canvas.width = w; canvas.height = h;
+  canvas.getContext('2d').drawImage(video, 0, 0, w, h);
+  fotosAtuais.push(canvas.toDataURL('image/jpeg', 0.72));
+  renderFotoGrid();
+  atualizarContadorCamera();
+}
 
 // ---------- envio para a IA ----------
 async function enviarCorrecao(){
