@@ -687,7 +687,14 @@ Responda APENAS com JSON válido, sem markdown, neste formato exato:
     if(data.error){ throw new Error(data.error.message || 'Erro na API'); }
     const textBlocks = (data.content || []).filter(b=>b.type==='text').map(b=>b.text).join('\n');
     const clean = textBlocks.replace(/```json|```/g,'').trim();
-    const resultado = JSON.parse(clean);
+    let resultado;
+    try{
+      resultado = JSON.parse(clean);
+    }catch(parseErr){
+      const motivo = data.stop_reason || 'desconhecido';
+      const trecho = clean ? clean.slice(0, 300) : '(resposta vazia)';
+      throw new Error(`resposta incompleta da IA (motivo: ${motivo}). Trecho recebido: ${trecho}`);
+    }
     mostrarResultadoPendente({turmaId, alunoId, provaId, tema, valor, resultado, nomeAluno: aluno ? aluno.nome : ''});
   }catch(err){
     console.error(err);
