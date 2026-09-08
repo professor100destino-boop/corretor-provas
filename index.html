@@ -412,7 +412,7 @@ function irPara(tab){
 async function carregarApiKeyInput(){
   const key = await getStore('apiKey', '');
   document.getElementById('apiKeyInput').value = key;
-  const modelo = await getStore('modelo', 'claude-haiku-4-5-20251001');
+  const modelo = await getStore('modelo', 'claude-sonnet-5');
   document.getElementById('modeloSelect').value = modelo;
 }
 async function salvarApiKey(){
@@ -627,7 +627,7 @@ async function enviarCorrecao(){
     irPara('ajustes');
     return;
   }
-  const modelo = await getStore('modelo', 'claude-haiku-4-5-20251001');
+  const modelo = await getStore('modelo', 'claude-sonnet-5');
 
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById('screen-loading').classList.add('active');
