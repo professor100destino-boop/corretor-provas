@@ -241,6 +241,10 @@
 
   <!-- TELA: NOVA CORREÇÃO -->
   <section class="screen" id="screen-corrigir">
+    <div id="erroCorrecaoBox" style="display:none; background:var(--red-soft); color:var(--red); padding:12px 14px; border-radius:var(--radius); margin-bottom:12px; font-size:13.5px; font-weight:600; word-break:break-word;">
+      <div id="erroCorrecaoTexto" style="margin-bottom:10px;"></div>
+      <button class="ghost" style="background:#fff;" onclick="document.getElementById('erroCorrecaoBox').style.display='none'">Fechar aviso</button>
+    </div>
     <div class="card">
       <h2>Nova correção</h2>
       <div class="field">
@@ -509,6 +513,7 @@ function prepararCorrecao(){
   atualizaProvasCorrecao();
   fotosAtuais = [];
   renderFotoGrid();
+  document.getElementById('erroCorrecaoBox').style.display = 'none';
 }
 function atualizaAlunosCorrecao(){
   const turmaId = document.getElementById('corrTurma').value;
@@ -660,7 +665,8 @@ Se não conseguir identificar a resposta do aluno em alguma questão, marque res
     console.error(err);
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
     document.getElementById('screen-corrigir').classList.add('active');
-    toast('Não consegui corrigir: ' + err.message);
+    document.getElementById('erroCorrecaoTexto').textContent = 'Não consegui corrigir: ' + err.message;
+    document.getElementById('erroCorrecaoBox').style.display = 'block';
   }
 }
 
