@@ -298,6 +298,16 @@
       </p>
     </div>
     <div class="card">
+      <h2>Modelo de correção</h2>
+      <p class="muted">O modelo econômico gasta bem menos crédito por correção. Use o preciso se a letra do aluno for difícil ou a correção sair errada.</p>
+      <div class="field" style="margin-top:10px;">
+        <select id="modeloSelect" onchange="salvarModelo()">
+          <option value="claude-haiku-4-5-20251001">Econômico (mais barato)</option>
+          <option value="claude-sonnet-5">Preciso (mais caro)</option>
+        </select>
+      </div>
+    </div>
+    <div class="card">
       <h2>Dados salvos</h2>
       <p class="muted">Turmas, alunos e correções ficam guardados só neste navegador/celular. Se limpar os dados do site ou trocar de aparelho, eles se perdem.</p>
     </div>
@@ -402,12 +412,19 @@ function irPara(tab){
 async function carregarApiKeyInput(){
   const key = await getStore('apiKey', '');
   document.getElementById('apiKeyInput').value = key;
+  const modelo = await getStore('modelo', 'claude-haiku-4-5-20251001');
+  document.getElementById('modeloSelect').value = modelo;
 }
 async function salvarApiKey(){
   const val = document.getElementById('apiKeyInput').value.trim();
   if(!val){ toast('Cole sua chave antes de salvar.'); return; }
   await saveStore('apiKey', val);
   toast('Chave salva!');
+}
+async function salvarModelo(){
+  const val = document.getElementById('modeloSelect').value;
+  await saveStore('modelo', val);
+  toast('Modelo atualizado!');
 }
 
 // ---------- turmas ----------
@@ -542,14 +559,14 @@ function resizeImage(file){
     const reader = new FileReader();
     reader.onload = e=>{ img.src = e.target.result; };
     img.onload = ()=>{
-      const maxW = 1400;
+      const maxW = 1100;
       const scale = Math.min(1, maxW / img.width);
       const w = Math.round(img.width * scale);
       const h = Math.round(img.height * scale);
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      resolve(canvas.toDataURL('image/jpeg', 0.72));
+      resolve(canvas.toDataURL('image/jpeg', 0.62));
     };
     reader.readAsDataURL(file);
   });
@@ -592,6 +609,7 @@ async function enviarCorrecao(){
     irPara('ajustes');
     return;
   }
+  const modelo = await getStore('modelo', 'claude-haiku-4-5-20251001');
 
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById('screen-loading').classList.add('active');
@@ -627,8 +645,8 @@ Se não conseguir identificar a resposta do aluno em alguma questão, marque res
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-5',
-        max_tokens: 2000,
+        model: modelo,
+        max_tokens: 1400,
         messages: [{role:'user', content}]
       })
     });
