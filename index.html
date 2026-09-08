@@ -241,10 +241,6 @@
 
   <!-- TELA: NOVA CORREÇÃO -->
   <section class="screen" id="screen-corrigir">
-    <div id="erroCorrecaoBox" style="display:none; background:var(--red-soft); color:var(--red); padding:12px 14px; border-radius:var(--radius); margin-bottom:12px; font-size:13.5px; font-weight:600;">
-      <div id="erroCorrecaoTexto" style="margin-bottom:8px;"></div>
-      <button class="ghost" style="background:#fff;" onclick="document.getElementById('erroCorrecaoBox').style.display='none'">Fechar aviso</button>
-    </div>
     <div class="card">
       <h2>Nova correção</h2>
       <div class="field">
@@ -266,7 +262,7 @@
         </div>
         <input type="file" id="inputFoto" accept="image/*" capture="environment" multiple style="display:none" onchange="handleFotos(event)">
       </div>
-      <button class="primary block" id="btnEnviar" style="margin-top:60px;" onclick="enviarCorrecao()">Corrigir com IA</button>
+      <button class="primary block" id="btnEnviar" style="margin-top:22px;" onclick="enviarCorrecao()">Corrigir com IA</button>
     </div>
   </section>
 
@@ -289,9 +285,9 @@
 
   <!-- TELA: AJUSTES -->
   <section class="screen" id="screen-ajustes">
-    <div class="card" id="cardChaveAnthropic">
-      <h2>Chave da API da Anthropic</h2>
-      <p class="muted">Você cria a sua e paga só pelo uso — cada correção custa poucos centavos.</p>
+    <div class="card">
+      <h2>Chave da API</h2>
+      <p class="muted">Para corrigir com IA, o app precisa de uma chave da API da Anthropic (Claude). Você cria a sua e paga só pelo uso — cada correção custa poucos centavos.</p>
       <div class="field" style="margin-top:12px;">
         <label>Sua chave (começa com sk-ant-...)</label>
         <input type="text" id="apiKeyInput" placeholder="sk-ant-...">
@@ -300,16 +296,6 @@
       <p class="muted" style="margin-top:14px;">
         Como conseguir: acesse <b>console.anthropic.com</b>, crie uma conta, adicione um cartão em "Billing" e depois vá em "API Keys" → "Create Key". Copie e cole aqui.
       </p>
-    </div>
-    <div class="card" id="cardModeloAnthropic">
-      <h2>Modelo de correção</h2>
-      <p class="muted">O modelo econômico gasta bem menos crédito por correção. Use o preciso se a letra do aluno for difícil ou a correção sair errada.</p>
-      <div class="field" style="margin-top:10px;">
-        <select id="modeloSelect" onchange="salvarModelo()">
-          <option value="claude-haiku-4-5-20251001">Econômico (mais barato)</option>
-          <option value="claude-sonnet-5">Preciso (mais caro)</option>
-        </select>
-      </div>
     </div>
     <div class="card">
       <h2>Dados salvos</h2>
@@ -416,19 +402,12 @@ function irPara(tab){
 async function carregarApiKeyInput(){
   const key = await getStore('apiKey', '');
   document.getElementById('apiKeyInput').value = key;
-  const modelo = await getStore('modelo', 'claude-sonnet-5');
-  document.getElementById('modeloSelect').value = modelo;
 }
 async function salvarApiKey(){
   const val = document.getElementById('apiKeyInput').value.trim();
   if(!val){ toast('Cole sua chave antes de salvar.'); return; }
   await saveStore('apiKey', val);
   toast('Chave salva!');
-}
-async function salvarModelo(){
-  const val = document.getElementById('modeloSelect').value;
-  await saveStore('modelo', val);
-  toast('Modelo atualizado!');
 }
 
 // ---------- turmas ----------
@@ -519,7 +498,6 @@ function renderProvas(){
 
 // ---------- preparar tela de correção ----------
 function prepararCorrecao(){
-  document.getElementById('erroCorrecaoBox').style.display = 'none';
   const selT = document.getElementById('corrTurma');
   selT.innerHTML = turmas.map(t=>`<option value="${t.id}">${esc(t.nome)}</option>`).join('') || '<option value="">Cadastre uma turma primeiro</option>';
   if(turmaAtualId && turmas.find(t=>t.id===turmaAtualId)){
@@ -559,55 +537,31 @@ function handleFotos(ev){
   ev.target.value = '';
 }
 function resizeImage(file){
-  return new Promise((resolve, reject)=>{
-    const maxW = 1250;
-    const desenhar = (imgLike, w0, h0)=>{
-      const scale = Math.min(1, maxW / w0);
-      const w = Math.round(w0 * scale);
-      const h = Math.round(h0 * scale);
+  return new Promise((resolve)=>{
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = e=>{ img.src = e.target.result; };
+    img.onload = ()=>{
+      const maxW = 1400;
+      const scale = Math.min(1, maxW / img.width);
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(imgLike, 0, 0, w, h);
-      resolve(canvas.toDataURL('image/jpeg', 0.68));
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', 0.72));
     };
-    if(window.createImageBitmap){
-      createImageBitmap(file, { imageOrientation: 'from-image' })
-        .then(bitmap => desenhar(bitmap, bitmap.width, bitmap.height))
-        .catch(()=>{
-          const img = new Image();
-          const reader = new FileReader();
-          reader.onload = e=>{ img.src = e.target.result; };
-          img.onload = ()=> desenhar(img, img.width, img.height);
-          reader.readAsDataURL(file);
-        });
-    } else {
-      const img = new Image();
-      const reader = new FileReader();
-      reader.onload = e=>{ img.src = e.target.result; };
-      img.onload = ()=> desenhar(img, img.width, img.height);
-      reader.readAsDataURL(file);
-    }
+    reader.readAsDataURL(file);
   });
 }
 function renderFotoGrid(){
   const grid = document.getElementById('fotoGrid');
   grid.innerHTML = '';
   fotosAtuais.forEach((src, i)=>{
-    const wrap = document.createElement('div');
-    wrap.style.display = 'flex';
-    wrap.style.flexDirection = 'column';
-    wrap.style.alignItems = 'center';
-    wrap.style.gap = '3px';
     const div = document.createElement('div');
     div.className = 'photo-thumb';
-    div.innerHTML = `<img src="${src}" onclick="ampliarFoto(${i})"><button class="rm" onclick="event.stopPropagation(); removerFoto(${i})">×</button>`;
-    const label = document.createElement('div');
-    label.style.fontSize = '10.5px';
-    label.style.color = 'var(--ink-soft)';
-    label.textContent = `Página ${i+1}`;
-    wrap.appendChild(div);
-    wrap.appendChild(label);
-    grid.appendChild(wrap);
+    div.innerHTML = `<img src="${src}"><button class="rm" onclick="removerFoto(${i})">×</button>`;
+    grid.appendChild(div);
   });
   const addBtn = document.createElement('label');
   addBtn.className = 'add-photo-btn';
@@ -616,13 +570,6 @@ function renderFotoGrid(){
   grid.appendChild(addBtn);
 }
 function removerFoto(i){ fotosAtuais.splice(i,1); renderFotoGrid(); }
-function ampliarFoto(i){
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed; inset:0; background:rgba(27,42,74,.92); z-index:100; display:flex; align-items:center; justify-content:center; padding:24px;';
-  overlay.innerHTML = `<img src="${fotosAtuais[i]}" style="max-width:100%; max-height:100%; border-radius:4px;">`;
-  overlay.onclick = ()=>overlay.remove();
-  document.body.appendChild(overlay);
-}
 
 // ---------- envio para a IA ----------
 async function enviarCorrecao(){
@@ -642,30 +589,29 @@ async function enviarCorrecao(){
     irPara('ajustes');
     return;
   }
-  const modelo = await getStore('modelo', 'claude-sonnet-5');
 
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById('screen-loading').classList.add('active');
 
   const aluno = alunos.find(a=>a.id===alunoId);
-  const base64Fotos = fotosAtuais.map(src=>src.split(',')[1]);
 
-  const instrucao = `Você está corrigindo uma prova de História do ensino médio brasileiro. As imagens são páginas sequenciais da mesma prova de um aluno chamado ${aluno ? aluno.nome : ''}: textos de referência, enunciados e respostas marcadas ou escritas à mão. Uma questão pode começar no fim de uma foto e continuar no início da próxima — trate as fotos como um documento contínuo.
-
-Regras:
-1. Questão com alternativas de letra (A a E) é sempre objetiva, vai em "objetivas". Questão de resposta escrita livre vai em "discursivas".
-2. Nas objetivas: identifique a marcação do aluno (círculo, X) e a alternativa correta. Comentário só quando errar (senão "").
-3. Nas discursivas: dê fracao de 0 a 1 e um comentário curto (até 8 palavras).
-4. Se não achar a resposta do aluno em alguma questão, use "não identificado".
-5. Inclua todas as questões da prova, mesmo com resposta ilegível ou em branco (fracao 0 nesse caso).
-
-Responda APENAS com JSON válido, sem markdown, neste formato exato:
-{"objetivas":[{"numero":1,"resposta_aluno":"B","resposta_correta":"B","correta":true,"comentario":""}],"discursivas":[{"numero":8,"fracao":0.5,"comentario":"..."}],"observacao_geral":"frase curta sobre o desempenho geral"}`;
-
-  const imageBlocks = base64Fotos.map(b64=>({
+  const imageBlocks = fotosAtuais.map(src=>({
     type: 'image',
-    source: { type: 'base64', media_type: 'image/jpeg', data: b64 }
+    source: { type: 'base64', media_type: 'image/jpeg', data: src.split(',')[1] }
   }));
+
+  const instrucao = `Você está corrigindo uma prova de História do ensino médio brasileiro. As imagens mostram as páginas da prova de um aluno chamado ${aluno ? aluno.nome : ''}, incluindo os textos de referência, os enunciados e as respostas marcadas ou escritas à mão.
+
+Sua tarefa:
+1. Para cada questão objetiva (múltipla escolha), identifique a alternativa marcada pelo aluno (procure círculos, "x" ou marcações) e determine qual é a alternativa correta, usando o texto de referência da própria prova e seu conhecimento histórico.
+2. Para cada questão discursiva, leia a resposta manuscrita do aluno e avalie a qualidade e correção do conteúdo, considerando o que foi pedido no enunciado. Dê uma fração de acerto de 0 a 1 (ex: 1 = resposta completa e correta, 0.5 = parcialmente correta ou incompleta, 0 = errada ou em branco).
+3. Escreva um comentário curto (máximo 15 palavras) para cada questão, em português, direto e objetivo.
+
+Responda APENAS com um JSON válido, sem markdown, sem texto antes ou depois, no formato exato:
+{"objetivas":[{"numero":1,"resposta_aluno":"B","resposta_correta":"B","correta":true,"comentario":"..."}],"discursivas":[{"numero":8,"fracao":0.5,"comentario":"..."}],"observacao_geral":"uma frase curta sobre o desempenho geral"}
+
+Se não conseguir identificar a resposta do aluno em alguma questão, marque resposta_aluno como "não identificado" e trate como errada. Não inclua nenhum texto fora do JSON.`;
+
   const content = [...imageBlocks, {type:'text', text: instrucao}];
 
   try{
@@ -678,8 +624,8 @@ Responda APENAS com JSON válido, sem markdown, neste formato exato:
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: modelo,
-        max_tokens: 3000,
+        model: 'claude-sonnet-5',
+        max_tokens: 2000,
         messages: [{role:'user', content}]
       })
     });
@@ -687,23 +633,13 @@ Responda APENAS com JSON válido, sem markdown, neste formato exato:
     if(data.error){ throw new Error(data.error.message || 'Erro na API'); }
     const textBlocks = (data.content || []).filter(b=>b.type==='text').map(b=>b.text).join('\n');
     const clean = textBlocks.replace(/```json|```/g,'').trim();
-    let resultado;
-    try{
-      resultado = JSON.parse(clean);
-    }catch(parseErr){
-      const motivo = data.stop_reason || 'desconhecido';
-      const trecho = clean ? clean.slice(0, 300) : '(resposta vazia)';
-      throw new Error(`resposta incompleta da IA (motivo: ${motivo}). Trecho recebido: ${trecho}`);
-    }
+    const resultado = JSON.parse(clean);
     mostrarResultadoPendente({turmaId, alunoId, provaId, tema, valor, resultado, nomeAluno: aluno ? aluno.nome : ''});
   }catch(err){
     console.error(err);
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
     document.getElementById('screen-corrigir').classList.add('active');
-    const box = document.getElementById('erroCorrecaoBox');
-    document.getElementById('erroCorrecaoTexto').textContent = 'Não consegui corrigir: ' + err.message;
-    box.style.display = 'block';
-    toast('Não consegui corrigir.');
+    toast('Não consegui corrigir: ' + err.message);
   }
 }
 
@@ -743,7 +679,7 @@ function mostrarResultadoPendente(ctx){
       <button class="danger" onclick="descartarCorrecaoPendente()">Descartar</button>
     </div>
   </div>`;
-  el.innerHTML = acoes + renderResultadoHTML(ctx.resultado, ctx.valor, nota, ctx.nomeAluno, ctx.tema, null) + acoes;
+  el.innerHTML = acoes + renderResultadoHTML(ctx.resultado, ctx.valor, nota, ctx.nomeAluno, ctx.tema, null);
 }
 
 async function confirmarSalvarCorrecao(){
@@ -791,9 +727,8 @@ function mostrarResultado(resultado, valor, nomeAluno, tema, correcaoId){
   document.getElementById('screen-resultado').classList.add('active');
   const nota = calcularNota(resultado, valor);
   const el = document.getElementById('resultadoConteudo');
-  const acoesTopo = correcaoId ? `<div class="card"><button class="danger block" onclick="excluirCorrecao('${correcaoId}')">Excluir esta correção</button></div>` : '';
-  const acoesFim = `<div class="card"><button class="primary block" onclick="irPara('corrigir')">Nova correção</button></div>`;
-  el.innerHTML = acoesTopo + renderResultadoHTML(resultado, valor, nota, nomeAluno, tema, correcaoId) + acoesFim;
+  const acoes = correcaoId ? `<div class="card"><button class="danger block" onclick="excluirCorrecao('${correcaoId}')">Excluir esta correção</button></div>` : '';
+  el.innerHTML = acoes + renderResultadoHTML(resultado, valor, nota, nomeAluno, tema, correcaoId);
 }
 
 function renderResultadoHTML(resultado, valor, nota, nomeAluno, tema, correcaoId){
@@ -806,7 +741,6 @@ function renderResultadoHTML(resultado, valor, nota, nomeAluno, tema, correcaoId
       <div class="muted">/ ${valor}</div>
     </div>
     ${resultado.observacao_geral ? `<div class="muted" style="margin-top:8px;">${esc(resultado.observacao_geral)}</div>` : ''}
-    ${resultado.paginas_faltando ? `<div style="margin-top:10px; background:var(--red-soft); color:var(--red); padding:8px 10px; border-radius:var(--radius); font-size:13px; font-weight:600;">⚠ ${esc(resultado.paginas_faltando)}</div>` : ''}
   </div>`;
 
   if(obj.length){
