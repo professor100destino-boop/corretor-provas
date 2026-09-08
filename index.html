@@ -348,12 +348,12 @@
 <div id="cameraOverlay" style="display:none; position:fixed; inset:0; background:#000; z-index:200; flex-direction:column;">
   <video id="cameraVideo" autoplay playsinline muted style="width:100%; flex:1; object-fit:cover; background:#000;"></video>
   <div id="cameraFlashEfeito" style="position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none; transition:opacity 80ms ease-out;"></div>
-  <div style="display:flex; justify-content:space-between; align-items:center; padding:18px 24px; padding-bottom:calc(18px + env(safe-area-inset-bottom)); background:#000;">
-    <button onclick="fecharCamera()" style="background:#333; color:#fff; border-radius:50%; width:52px; height:52px; font-size:13px;">Fechar</button>
-    <button onclick="capturarFoto()" style="width:72px; height:72px; border-radius:50%; background:#fff; border:4px solid #888;"></button>
-    <button id="btnFlashToggle" onclick="alternarFlash()" style="background:#333; color:#fff; border-radius:50%; width:52px; height:52px; font-size:20px;">⚡</button>
+  <button onclick="fecharCamera()" style="position:absolute; top:calc(16px + env(safe-area-inset-top)); left:16px; background:rgba(0,0,0,.6); color:#fff; border-radius:50%; width:46px; height:46px; font-size:22px; line-height:1; z-index:5;">×</button>
+  <div id="cameraContador" style="position:absolute; top:calc(16px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%); background:rgba(0,0,0,.75); color:#fff; padding:8px 18px; border-radius:20px; font-size:15px; font-weight:600; transition:transform 150ms ease;"></div>
+  <div style="display:flex; justify-content:center; align-items:center; gap:40px; padding-top:18px; padding-bottom:max(32px, calc(20px + env(safe-area-inset-bottom))); background:#000;">
+    <button id="btnFlashToggle" onclick="alternarFlash()" style="background:#333; color:#fff; border-radius:50%; width:52px; height:52px; font-size:20px; flex:none;">⚡</button>
+    <button onclick="capturarFoto()" style="width:76px; height:76px; border-radius:50%; background:#fff; border:4px solid #888; flex:none;"></button>
   </div>
-  <div id="cameraContador" style="position:absolute; top:16px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.75); color:#fff; padding:8px 18px; border-radius:20px; font-size:15px; font-weight:600; transition:transform 150ms ease;"></div>
 </div>
 <canvas id="cameraCanvas" style="display:none;"></canvas>
 
