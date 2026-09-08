@@ -257,10 +257,11 @@
       </div>
       <div class="field">
         <label>Fotos da prova (todas as páginas)</label>
+        <p class="muted" style="margin-top:-2px; margin-bottom:8px;">Tire as fotos com a câmera do celular normalmente e depois toque em + pra selecionar todas de uma vez.</p>
         <div class="photo-grid" id="fotoGrid">
           <label class="add-photo-btn" for="inputFoto">+</label>
         </div>
-        <input type="file" id="inputFoto" accept="image/*" capture="environment" multiple style="display:none" onchange="handleFotos(event)">
+        <input type="file" id="inputFoto" accept="image/*" multiple style="display:none" onchange="handleFotos(event)">
       </div>
       <button class="primary block" id="btnEnviar" onclick="enviarCorrecao()">Corrigir com IA</button>
     </div>
