@@ -559,14 +559,14 @@ function resizeImage(file){
     const reader = new FileReader();
     reader.onload = e=>{ img.src = e.target.result; };
     img.onload = ()=>{
-      const maxW = 950;
+      const maxW = 1250;
       const scale = Math.min(1, maxW / img.width);
       const w = Math.round(img.width * scale);
       const h = Math.round(img.height * scale);
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      resolve(canvas.toDataURL('image/jpeg', 0.5));
+      resolve(canvas.toDataURL('image/jpeg', 0.68));
     };
     reader.readAsDataURL(file);
   });
@@ -627,6 +627,7 @@ Sua tarefa:
 1. Para cada questão objetiva (múltipla escolha), identifique a alternativa marcada pelo aluno (procure círculos, "x" ou marcações) e determine qual é a alternativa correta, usando o texto de referência da própria prova e seu conhecimento histórico.
 2. Para cada questão discursiva, leia a resposta manuscrita do aluno e avalie a qualidade e correção do conteúdo, considerando o que foi pedido no enunciado. Dê uma fração de acerto de 0 a 1 (ex: 1 = resposta completa e correta, 0.5 = parcialmente correta ou incompleta, 0 = errada ou em branco).
 3. Nas objetivas, só escreva comentário quando o aluno errar (deixe "" quando acertar). Nas discursivas, sempre escreva um comentário curto. Comentários com no máximo 8 palavras, em português, direto.
+4. IMPORTANTE: inclua TODAS as questões discursivas da prova no array "discursivas", uma por uma, mesmo que a resposta esteja ilegível ou em branco (nesse caso use fracao 0 e comentario "ilegível" ou "em branco"). Nunca omita o array "discursivas" nem deixe faltar questões.
 
 Responda APENAS com um JSON válido, sem markdown, sem texto antes ou depois, no formato exato:
 {"objetivas":[{"numero":1,"resposta_aluno":"B","resposta_correta":"B","correta":true,"comentario":"..."}],"discursivas":[{"numero":8,"fracao":0.5,"comentario":"..."}],"observacao_geral":"uma frase curta sobre o desempenho geral"}
@@ -646,7 +647,7 @@ Se não conseguir identificar a resposta do aluno em alguma questão, marque res
       },
       body: JSON.stringify({
         model: modelo,
-        max_tokens: 900,
+        max_tokens: 1600,
         messages: [{role:'user', content}]
       })
     });
