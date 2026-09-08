@@ -575,10 +575,21 @@ function renderFotoGrid(){
   const grid = document.getElementById('fotoGrid');
   grid.innerHTML = '';
   fotosAtuais.forEach((src, i)=>{
+    const wrap = document.createElement('div');
+    wrap.style.display = 'flex';
+    wrap.style.flexDirection = 'column';
+    wrap.style.alignItems = 'center';
+    wrap.style.gap = '3px';
     const div = document.createElement('div');
     div.className = 'photo-thumb';
-    div.innerHTML = `<img src="${src}"><button class="rm" onclick="removerFoto(${i})">×</button>`;
-    grid.appendChild(div);
+    div.innerHTML = `<img src="${src}" onclick="ampliarFoto(${i})"><button class="rm" onclick="event.stopPropagation(); removerFoto(${i})">×</button>`;
+    const label = document.createElement('div');
+    label.style.fontSize = '10.5px';
+    label.style.color = 'var(--ink-soft)';
+    label.textContent = `Página ${i+1}`;
+    wrap.appendChild(div);
+    wrap.appendChild(label);
+    grid.appendChild(wrap);
   });
   const addBtn = document.createElement('label');
   addBtn.className = 'add-photo-btn';
@@ -587,6 +598,13 @@ function renderFotoGrid(){
   grid.appendChild(addBtn);
 }
 function removerFoto(i){ fotosAtuais.splice(i,1); renderFotoGrid(); }
+function ampliarFoto(i){
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed; inset:0; background:rgba(27,42,74,.92); z-index:100; display:flex; align-items:center; justify-content:center; padding:24px;';
+  overlay.innerHTML = `<img src="${fotosAtuais[i]}" style="max-width:100%; max-height:100%; border-radius:4px;">`;
+  overlay.onclick = ()=>overlay.remove();
+  document.body.appendChild(overlay);
+}
 
 // ---------- envio para a IA ----------
 async function enviarCorrecao(){
@@ -628,9 +646,10 @@ Sua tarefa:
 2. Para cada questão discursiva, leia a resposta manuscrita do aluno e avalie a qualidade e correção do conteúdo, considerando o que foi pedido no enunciado. Dê uma fração de acerto de 0 a 1 (ex: 1 = resposta completa e correta, 0.5 = parcialmente correta ou incompleta, 0 = errada ou em branco).
 3. Nas objetivas, só escreva comentário quando o aluno errar (deixe "" quando acertar). Nas discursivas, sempre escreva um comentário curto. Comentários com no máximo 8 palavras, em português, direto.
 4. IMPORTANTE: inclua TODAS as questões discursivas da prova no array "discursivas", uma por uma, mesmo que a resposta esteja ilegível ou em branco (nesse caso use fracao 0 e comentario "ilegível" ou "em branco"). Nunca omita o array "discursivas" nem deixe faltar questões.
+5. Se perceber que falta alguma página da prova (por exemplo, a numeração das questões pula de 3 para 8, sem as questões 4 a 7 aparecerem em nenhuma imagem), inclua um campo "paginas_faltando" no JSON com uma frase curta avisando isso, e marque as questões ausentes com resposta_aluno "página não enviada".
 
 Responda APENAS com um JSON válido, sem markdown, sem texto antes ou depois, no formato exato:
-{"objetivas":[{"numero":1,"resposta_aluno":"B","resposta_correta":"B","correta":true,"comentario":"..."}],"discursivas":[{"numero":8,"fracao":0.5,"comentario":"..."}],"observacao_geral":"uma frase curta sobre o desempenho geral"}
+{"objetivas":[{"numero":1,"resposta_aluno":"B","resposta_correta":"B","correta":true,"comentario":"..."}],"discursivas":[{"numero":8,"fracao":0.5,"comentario":"..."}],"observacao_geral":"uma frase curta sobre o desempenho geral","paginas_faltando":""}
 
 Se não conseguir identificar a resposta do aluno em alguma questão, marque resposta_aluno como "não identificado" e trate como errada. Não inclua nenhum texto fora do JSON.`;
 
@@ -747,6 +766,7 @@ function renderResultadoHTML(resultado, valor, nota, nomeAluno, tema, correcaoId
       <div class="muted">/ ${valor}</div>
     </div>
     ${resultado.observacao_geral ? `<div class="muted" style="margin-top:8px;">${esc(resultado.observacao_geral)}</div>` : ''}
+    ${resultado.paginas_faltando ? `<div style="margin-top:10px; background:var(--red-soft); color:var(--red); padding:8px 10px; border-radius:var(--radius); font-size:13px; font-weight:600;">⚠ ${esc(resultado.paginas_faltando)}</div>` : ''}
   </div>`;
 
   if(obj.length){
