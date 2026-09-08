@@ -164,6 +164,10 @@
     width:20px; height:20px; border:1.5px solid var(--gold); border-radius:50%;
     color:var(--gold); font-size:11px; font-weight:700; flex:none;
   }
+  .rm-inline{
+    background:var(--red-soft); color:var(--red); width:24px; height:24px; border-radius:50%;
+    font-size:15px; line-height:24px; text-align:center; padding:0; flex:none;
+  }
 </style>
 </head>
 <body>
@@ -630,8 +634,7 @@ Se não conseguir identificar a resposta do aluno em alguma questão, marque res
     const textBlocks = (data.content || []).filter(b=>b.type==='text').map(b=>b.text).join('\n');
     const clean = textBlocks.replace(/```json|```/g,'').trim();
     const resultado = JSON.parse(clean);
-    const correcaoId = await salvarCorrecao({turmaId, alunoId, provaId, tema, valor, resultado});
-    mostrarResultado(resultado, valor, aluno ? aluno.nome : '', tema, correcaoId);
+    mostrarResultadoPendente({turmaId, alunoId, provaId, tema, valor, resultado, nomeAluno: aluno ? aluno.nome : ''});
   }catch(err){
     console.error(err);
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
@@ -661,12 +664,54 @@ async function salvarCorrecao({turmaId, alunoId, provaId, tema, valor, resultado
   return id;
 }
 
+let pendingCtx = null;
+
+function mostrarResultadoPendente(ctx){
+  pendingCtx = ctx;
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-resultado').classList.add('active');
+  const nota = calcularNota(ctx.resultado, ctx.valor);
+  const el = document.getElementById('resultadoConteudo');
+  const acoes = `<div class="card">
+    <p class="muted" style="margin-top:0;">Confira o resultado antes de salvar. Se algo saiu errado, é só descartar e corrigir de novo.</p>
+    <div class="row">
+      <button class="primary" onclick="confirmarSalvarCorrecao()">Salvar correção</button>
+      <button class="danger" onclick="descartarCorrecaoPendente()">Descartar</button>
+    </div>
+  </div>`;
+  el.innerHTML = acoes + renderResultadoHTML(ctx.resultado, ctx.valor, nota, ctx.nomeAluno, ctx.tema, null);
+}
+
+async function confirmarSalvarCorrecao(){
+  if(!pendingCtx) return;
+  const { resultado, valor, nomeAluno, tema } = pendingCtx;
+  const correcaoId = await salvarCorrecao(pendingCtx);
+  pendingCtx = null;
+  toast('Correção salva!');
+  mostrarResultado(resultado, valor, nomeAluno, tema, correcaoId);
+}
+
+function descartarCorrecaoPendente(){
+  pendingCtx = null;
+  toast('Correção descartada.');
+  irPara('corrigir');
+}
+
+function excluirCorrecao(id){
+  if(!confirm('Excluir esta correção? Não dá pra desfazer.')) return;
+  correcoes = correcoes.filter(c=>c.id!==id);
+  saveStore('correcoes', correcoes);
+  toast('Correção excluída.');
+  irPara('historico');
+}
+
 function mostrarResultado(resultado, valor, nomeAluno, tema, correcaoId){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById('screen-resultado').classList.add('active');
   const nota = calcularNota(resultado, valor);
   const el = document.getElementById('resultadoConteudo');
-  el.innerHTML = renderResultadoHTML(resultado, valor, nota, nomeAluno, tema, correcaoId);
+  const acoes = correcaoId ? `<div class="card"><button class="danger block" onclick="excluirCorrecao('${correcaoId}')">Excluir esta correção</button></div>` : '';
+  el.innerHTML = acoes + renderResultadoHTML(resultado, valor, nota, nomeAluno, tema, correcaoId);
 }
 
 function renderResultadoHTML(resultado, valor, nota, nomeAluno, tema, correcaoId){
@@ -717,13 +762,27 @@ function editarFracao(correcaoId, index, novoValor){
   let pct = parseFloat(novoValor);
   if(isNaN(pct)) pct = 0;
   pct = Math.max(0, Math.min(100, pct));
-  const rec = correcoes.find(c=>c.id===correcaoId);
-  if(!rec){ toast('Não encontrei essa correção pra atualizar.'); return; }
-  rec.resultado.discursivas[index].fracao = pct/100;
-  rec.nota = calcularNota(rec.resultado, rec.valor);
-  saveStore('correcoes', correcoes);
+
+  let resultadoAlvo, valorAlvo, atualizarNota;
+  if(correcaoId){
+    const rec = correcoes.find(c=>c.id===correcaoId);
+    if(!rec){ toast('Não encontrei essa correção pra atualizar.'); return; }
+    resultadoAlvo = rec.resultado;
+    valorAlvo = rec.valor;
+    atualizarNota = (n)=>{ rec.nota = n; saveStore('correcoes', correcoes); };
+  } else if(pendingCtx){
+    resultadoAlvo = pendingCtx.resultado;
+    valorAlvo = pendingCtx.valor;
+    atualizarNota = ()=>{};
+  } else {
+    return;
+  }
+
+  resultadoAlvo.discursivas[index].fracao = pct/100;
+  const novaNota = calcularNota(resultadoAlvo, valorAlvo);
+  atualizarNota(novaNota);
   const notaEl = document.getElementById('notaGrandeValor');
-  if(notaEl) notaEl.textContent = rec.nota;
+  if(notaEl) notaEl.textContent = novaNota;
   const badge = document.getElementById('pctBadge_'+index);
   if(badge){ badge.classList.toggle('ok', pct>=70); badge.classList.toggle('no', pct<70); }
 }
@@ -745,7 +804,7 @@ function renderHistorico(){
     div.className = 'list-item';
     div.onclick = ()=>mostrarResultado(c.resultado, c.valor, aluno?aluno.nome:'', c.tema, c.id);
     const data = new Date(c.criadoEm).toLocaleDateString('pt-BR');
-    div.innerHTML = `<div><div class="name">${esc(aluno?aluno.nome:'Aluno removido')}</div><div class="meta">${esc(c.tema||'Sem título')} · ${data}</div></div><div class="seal">${c.nota}</div>`;
+    div.innerHTML = `<div><div class="name">${esc(aluno?aluno.nome:'Aluno removido')}</div><div class="meta">${esc(c.tema||'Sem título')} · ${data}</div></div><div style="display:flex; align-items:center; gap:10px;"><div class="seal">${c.nota}</div><button class="rm-inline" onclick="event.stopPropagation(); excluirCorrecao('${c.id}')">×</button></div>`;
     list.appendChild(div);
   });
 }
