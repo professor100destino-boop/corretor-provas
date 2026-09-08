@@ -559,14 +559,14 @@ function resizeImage(file){
     const reader = new FileReader();
     reader.onload = e=>{ img.src = e.target.result; };
     img.onload = ()=>{
-      const maxW = 1100;
+      const maxW = 950;
       const scale = Math.min(1, maxW / img.width);
       const w = Math.round(img.width * scale);
       const h = Math.round(img.height * scale);
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      resolve(canvas.toDataURL('image/jpeg', 0.62));
+      resolve(canvas.toDataURL('image/jpeg', 0.5));
     };
     reader.readAsDataURL(file);
   });
@@ -626,7 +626,7 @@ async function enviarCorrecao(){
 Sua tarefa:
 1. Para cada questão objetiva (múltipla escolha), identifique a alternativa marcada pelo aluno (procure círculos, "x" ou marcações) e determine qual é a alternativa correta, usando o texto de referência da própria prova e seu conhecimento histórico.
 2. Para cada questão discursiva, leia a resposta manuscrita do aluno e avalie a qualidade e correção do conteúdo, considerando o que foi pedido no enunciado. Dê uma fração de acerto de 0 a 1 (ex: 1 = resposta completa e correta, 0.5 = parcialmente correta ou incompleta, 0 = errada ou em branco).
-3. Escreva um comentário curto (máximo 15 palavras) para cada questão, em português, direto e objetivo.
+3. Nas objetivas, só escreva comentário quando o aluno errar (deixe "" quando acertar). Nas discursivas, sempre escreva um comentário curto. Comentários com no máximo 8 palavras, em português, direto.
 
 Responda APENAS com um JSON válido, sem markdown, sem texto antes ou depois, no formato exato:
 {"objetivas":[{"numero":1,"resposta_aluno":"B","resposta_correta":"B","correta":true,"comentario":"..."}],"discursivas":[{"numero":8,"fracao":0.5,"comentario":"..."}],"observacao_geral":"uma frase curta sobre o desempenho geral"}
@@ -646,7 +646,7 @@ Se não conseguir identificar a resposta do aluno em alguma questão, marque res
       },
       body: JSON.stringify({
         model: modelo,
-        max_tokens: 1400,
+        max_tokens: 900,
         messages: [{role:'user', content}]
       })
     });
