@@ -700,7 +700,7 @@ function mostrarResultadoPendente(ctx){
       <button class="danger" onclick="descartarCorrecaoPendente()">Descartar</button>
     </div>
   </div>`;
-  el.innerHTML = acoes + renderResultadoHTML(ctx.resultado, ctx.valor, nota, ctx.nomeAluno, ctx.tema, null);
+  el.innerHTML = acoes + renderResultadoHTML(ctx.resultado, ctx.valor, nota, ctx.nomeAluno, ctx.tema, null) + acoes;
 }
 
 async function confirmarSalvarCorrecao(){
@@ -731,8 +731,9 @@ function mostrarResultado(resultado, valor, nomeAluno, tema, correcaoId){
   document.getElementById('screen-resultado').classList.add('active');
   const nota = calcularNota(resultado, valor);
   const el = document.getElementById('resultadoConteudo');
-  const acoes = correcaoId ? `<div class="card"><button class="danger block" onclick="excluirCorrecao('${correcaoId}')">Excluir esta correção</button></div>` : '';
-  el.innerHTML = acoes + renderResultadoHTML(resultado, valor, nota, nomeAluno, tema, correcaoId);
+  const acoesTopo = correcaoId ? `<div class="card"><button class="danger block" onclick="excluirCorrecao('${correcaoId}')">Excluir esta correção</button></div>` : '';
+  const acoesFim = `<div class="card"><button class="primary block" onclick="irPara('corrigir')">Nova correção</button></div>`;
+  el.innerHTML = acoesTopo + renderResultadoHTML(resultado, valor, nota, nomeAluno, tema, correcaoId) + acoesFim;
 }
 
 function renderResultadoHTML(resultado, valor, nota, nomeAluno, tema, correcaoId){
