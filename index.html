@@ -977,14 +977,19 @@ function renderResultadoHTML(resultado, valor, nota, nomeAluno, tema, correcaoId
   </div>`;
 
   if(obj.length){
-    h += `<div class="card"><h2>Objetivas</h2>`;
-    obj.forEach(q=>{
-      h += `<div class="questao">
+    h += `<div class="card"><h2>Objetivas</h2><p class="muted" style="margin-top:-6px; margin-bottom:10px;">Se o aluno rasurou e marcou outra alternativa, ajuste aqui.</p>`;
+    obj.forEach((q,i)=>{
+      h += `<div class="questao" id="questaoObj_${i}">
         <div class="head">
           <div class="num">Questão ${q.numero}</div>
-          <span class="badge ${q.correta?'ok':'no'}">${q.correta?'Certa':'Errada'} · ${esc(q.resposta_aluno||'-')}${q.correta?'':' (correta: '+esc(q.resposta_correta||'-')+')'}</span>
+          <span class="badge-edit ${q.correta?'ok':'no'}" id="objBadge_${i}">
+            <span id="objRotulo_${i}">${q.correta?'Certa':'Errada'}</span> ·
+            <select class="pct-input" style="width:auto; padding-right:2px;" onchange="editarRespostaObjetiva('${correcaoId||''}', ${i}, this.value)">
+              ${['A','B','C','D','E','não identificado'].map(op=>`<option value="${op}" ${op===(q.resposta_aluno||'')?'selected':''}>${op}</option>`).join('')}
+            </select>
+          </span>
         </div>
-        <div class="comentario">${esc(q.comentario||'')}</div>
+        <div class="comentario" id="objComentario_${i}">${esc(rotuloObjetiva(q))}</div>
       </div>`;
     });
     h += `</div>`;
@@ -1006,6 +1011,43 @@ function renderResultadoHTML(resultado, valor, nota, nomeAluno, tema, correcaoId
     h += `</div>`;
   }
   return h;
+}
+
+function rotuloObjetiva(q){
+  const base = q.correta ? 'Certa' : `Errada — a correta é ${q.resposta_correta || '-'}`;
+  return q.comentario ? `${base}. ${q.comentario}` : base;
+}
+
+function editarRespostaObjetiva(correcaoId, index, novoValor){
+  let resultadoAlvo, valorAlvo, atualizarNota;
+  if(correcaoId){
+    const rec = correcoes.find(c=>c.id===correcaoId);
+    if(!rec){ toast('Não encontrei essa correção pra atualizar.'); return; }
+    resultadoAlvo = rec.resultado;
+    valorAlvo = rec.valor;
+    atualizarNota = (n)=>{ rec.nota = n; saveStore('correcoes', correcoes); };
+  } else if(pendingCtx){
+    resultadoAlvo = pendingCtx.resultado;
+    valorAlvo = pendingCtx.valor;
+    atualizarNota = ()=>{};
+  } else {
+    return;
+  }
+
+  const q = resultadoAlvo.objetivas[index];
+  q.resposta_aluno = novoValor;
+  q.correta = (novoValor === q.resposta_correta);
+
+  const novaNota = calcularNota(resultadoAlvo, valorAlvo);
+  atualizarNota(novaNota);
+  const notaEl = document.getElementById('notaGrandeValor');
+  if(notaEl) notaEl.textContent = novaNota;
+  const badge = document.getElementById('objBadge_'+index);
+  if(badge){ badge.classList.toggle('ok', q.correta); badge.classList.toggle('no', !q.correta); }
+  const rotulo = document.getElementById('objRotulo_'+index);
+  if(rotulo) rotulo.textContent = q.correta ? 'Certa' : 'Errada';
+  const comentarioEl = document.getElementById('objComentario_'+index);
+  if(comentarioEl) comentarioEl.textContent = rotuloObjetiva(q);
 }
 
 function editarFracao(correcaoId, index, novoValor){
