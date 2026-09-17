@@ -302,6 +302,12 @@
     <div class="card">
       <h2>Dados salvos</h2>
       <p class="muted">Turmas, alunos e correções ficam guardados só neste navegador/celular. Se limpar os dados do site ou trocar de aparelho, eles se perdem.</p>
+      <p class="muted" style="margin-top:10px;">Pra levar os dados pra outro celular, exporte um arquivo aqui e importe ele no outro aparelho.</p>
+      <div class="row" style="margin-top:12px;">
+        <button class="primary" onclick="exportarDados()">Exportar dados</button>
+        <button class="ghost" onclick="document.getElementById('inputImportar').click()">Importar dados</button>
+      </div>
+      <input type="file" id="inputImportar" accept="application/json" style="display:none" onchange="importarDados(event)">
     </div>
   </section>
 
@@ -422,6 +428,68 @@ async function salvarApiKey(){
   if(!val){ toast('Cole sua chave antes de salvar.'); return; }
   await saveStore('apiKey', val);
   toast('Chave salva!');
+}
+
+// ---------- exportar / importar dados ----------
+function exportarDados(){
+  const pacote = {
+    tipo: 'ja-corrigiu-backup',
+    versao: 1,
+    exportadoEm: new Date().toISOString(),
+    turmas, alunos, provas, correcoes
+  };
+  const blob = new Blob([JSON.stringify(pacote, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const data = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = `ja-corrigiu-backup-${data}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  toast('Backup baixado!');
+}
+
+function importarDados(ev){
+  const file = ev.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    let pacote;
+    try{
+      pacote = JSON.parse(e.target.result);
+    }catch(err){
+      toast('Arquivo inválido, não é um backup do Já Corrigiu.');
+      ev.target.value = '';
+      return;
+    }
+    if(pacote.tipo !== 'ja-corrigiu-backup' || !Array.isArray(pacote.turmas)){
+      toast('Arquivo inválido, não é um backup do Já Corrigiu.');
+      ev.target.value = '';
+      return;
+    }
+    const qtdTurmas = pacote.turmas.length;
+    const qtdAlunos = (pacote.alunos || []).length;
+    const qtdCorrecoes = (pacote.correcoes || []).length;
+    confirmarAcao(
+      `Importar vai SUBSTITUIR tudo que está salvo neste celular por: ${qtdTurmas} turma(s), ${qtdAlunos} aluno(s) e ${qtdCorrecoes} correção(ões) do arquivo. Continuar?`,
+      async ()=>{
+        turmas = pacote.turmas || [];
+        alunos = pacote.alunos || [];
+        provas = pacote.provas || [];
+        correcoes = pacote.correcoes || [];
+        await saveStore('turmas', turmas);
+        await saveStore('alunos', alunos);
+        await saveStore('provas', provas);
+        await saveStore('correcoes', correcoes);
+        toast('Dados importados com sucesso!');
+        renderTurmas();
+      }
+    );
+    ev.target.value = '';
+  };
+  reader.readAsText(file);
 }
 
 // ---------- turmas ----------
