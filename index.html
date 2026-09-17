@@ -338,6 +338,45 @@
     </div>
   </section>
 
+  <!-- TELA: RELATÓRIOS -->
+  <section class="screen" id="screen-relatorios">
+    <div class="card">
+      <h2>Relatório da turma</h2>
+      <p class="muted">Todos os alunos x todas as provas, com médias.</p>
+      <div class="field" style="margin-top:10px;">
+        <label>Turma</label>
+        <select id="relTurmaSelect1"></select>
+      </div>
+      <button class="primary block" onclick="gerarRelatorioTurma(document.getElementById('relTurmaSelect1').value)">Gerar PDF da turma</button>
+    </div>
+    <div class="card">
+      <h2>Relatório da prova</h2>
+      <p class="muted">Notas de todos os alunos numa prova específica, com detalhamento por questão.</p>
+      <div class="field" style="margin-top:10px;">
+        <label>Turma</label>
+        <select id="relTurmaSelect2" onchange="atualizaProvasRelatorio()"></select>
+      </div>
+      <div class="field">
+        <label>Prova</label>
+        <select id="relProvaSelect"></select>
+      </div>
+      <button class="primary block" onclick="gerarRelatorioPDF(document.getElementById('relProvaSelect').value)">Gerar PDF da prova</button>
+    </div>
+    <div class="card">
+      <h2>Relatório do aluno</h2>
+      <p class="muted">Histórico completo de um aluno em todas as provas já corrigidas.</p>
+      <div class="field" style="margin-top:10px;">
+        <label>Turma</label>
+        <select id="relTurmaSelect3" onchange="atualizaAlunosRelatorio()"></select>
+      </div>
+      <div class="field">
+        <label>Aluno</label>
+        <select id="relAlunoSelect"></select>
+      </div>
+      <button class="primary block" onclick="gerarRelatorioAluno(document.getElementById('relAlunoSelect').value)">Gerar PDF do aluno</button>
+    </div>
+  </section>
+
 </main>
 
 <nav class="tabs">
@@ -352,6 +391,10 @@
   <button class="tab-btn" data-tab="historico" onclick="irPara('historico')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5.5C4 4.7 4.7 4 5.5 4H14l5 5v10.5c0 .8-.7 1.5-1.5 1.5h-13C3.7 21 3 20.3 3 19.5v-14Z"/><path d="M8 12h8M8 16h5"/></svg>
     Histórico
+  </button>
+  <button class="tab-btn" data-tab="relatorios" onclick="irPara('relatorios')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M9 14v4M13 11v7M17 15v3"/></svg>
+    Relatórios
   </button>
   <button class="tab-btn" data-tab="ajustes" onclick="irPara('ajustes')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
@@ -386,6 +429,7 @@ const HEADERS = {
   loading: ['Corrigindo…', ''],
   resultado: ['Resultado', ''],
   historico: ['Histórico', 'correções já feitas'],
+  relatorios: ['Relatórios', 'gerar PDFs'],
   ajustes: ['Ajustes', 'chave da API']
 };
 
@@ -427,6 +471,7 @@ function irPara(tab){
   if(tab==='turmas') renderTurmas();
   if(tab==='corrigir') prepararCorrecao();
   if(tab==='historico') renderHistorico();
+  if(tab==='relatorios') prepararRelatorios();
   if(tab==='ajustes') carregarApiKeyInput();
 }
 
@@ -535,7 +580,7 @@ function renderTurmas(){
     const div = document.createElement('div');
     div.className = 'list-item';
     div.onclick = ()=>abrirTurma(t.id);
-    div.innerHTML = `<div><div class="name">${esc(t.nome)}</div><div class="meta">${n} aluno${n===1?'':'s'}</div></div><button class="ghost" style="flex:none; padding:6px 10px; font-size:12px;" onclick="event.stopPropagation(); gerarRelatorioTurma('${t.id}')">PDF turma</button><div class="chev">›</div>`;
+    div.innerHTML = `<div><div class="name">${esc(t.nome)}</div><div class="meta">${n} aluno${n===1?'':'s'}</div></div><div class="chev">›</div>`;
     list.appendChild(div);
   });
 }
@@ -568,7 +613,7 @@ function renderAlunos(){
     const notas = correcoes.filter(c=>c.alunoId===a.id);
     const div = document.createElement('div');
     div.className = 'list-item';
-    div.innerHTML = `<div><div class="name">${esc(a.nome)}</div><div class="meta">${notas.length} correção${notas.length===1?'':'ões'}</div></div><button class="ghost" style="flex:none; padding:6px 10px; font-size:12px;" onclick="event.stopPropagation(); gerarRelatorioAluno('${a.id}')">PDF</button><button class="ghost" style="flex:none; padding:6px 10px; font-size:12px;" onclick="event.stopPropagation(); editarNomeAluno('${a.id}')">✎</button>`;
+    div.innerHTML = `<div><div class="name">${esc(a.nome)}</div><div class="meta">${notas.length} correção${notas.length===1?'':'ões'}</div></div><button class="ghost" style="flex:none; padding:6px 10px; font-size:12px;" onclick="event.stopPropagation(); editarNomeAluno('${a.id}')">✎ Editar</button>`;
     list.appendChild(div);
   });
 }
@@ -626,7 +671,7 @@ function renderProvas(){
     const feitas = correcoes.filter(c=>c.provaId===p.id).length;
     const div = document.createElement('div');
     div.className = 'list-item';
-    div.innerHTML = `<div><div class="name">${esc(p.nome)}</div><div class="meta">Valor ${p.valor} · ${feitas}/${totalAlunos} corrigidas</div></div><button class="ghost" style="flex:none" onclick="event.stopPropagation(); gerarRelatorioPDF('${p.id}')">Relatório PDF</button>`;
+    div.innerHTML = `<div><div class="name">${esc(p.nome)}</div><div class="meta">Valor ${p.valor} · ${feitas}/${totalAlunos} corrigidas</div></div>`;
     list.appendChild(div);
   });
 }
@@ -1179,6 +1224,27 @@ function editarFracao(correcaoId, index, novoValor){
 }
 
 // ---------- histórico ----------
+function prepararRelatorios(){
+  const opcoesTurma = turmas.map(t=>`<option value="${t.id}">${esc(t.nome)}</option>`).join('') || '<option value="">Cadastre uma turma primeiro</option>';
+  ['relTurmaSelect1','relTurmaSelect2','relTurmaSelect3'].forEach(id=>{
+    document.getElementById(id).innerHTML = opcoesTurma;
+  });
+  atualizaProvasRelatorio();
+  atualizaAlunosRelatorio();
+}
+function atualizaProvasRelatorio(){
+  const turmaId = document.getElementById('relTurmaSelect2').value;
+  const sel = document.getElementById('relProvaSelect');
+  const doTurma = provas.filter(p=>p.turmaId===turmaId);
+  sel.innerHTML = doTurma.map(p=>`<option value="${p.id}">${esc(p.nome)}</option>`).join('') || '<option value="">Nenhuma prova nessa turma</option>';
+}
+function atualizaAlunosRelatorio(){
+  const turmaId = document.getElementById('relTurmaSelect3').value;
+  const sel = document.getElementById('relAlunoSelect');
+  const doTurma = alunos.filter(a=>a.turmaId===turmaId);
+  sel.innerHTML = doTurma.map(a=>`<option value="${a.id}">${esc(a.nome)}</option>`).join('') || '<option value="">Nenhum aluno nessa turma</option>';
+}
+
 function renderHistorico(){
   const selT = document.getElementById('histTurma');
   selT.innerHTML = '<option value="">Todas as turmas</option>' + turmas.map(t=>`<option value="${t.id}">${esc(t.nome)}</option>`).join('');
