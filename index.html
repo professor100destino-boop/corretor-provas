@@ -535,7 +535,7 @@ function renderTurmas(){
     const div = document.createElement('div');
     div.className = 'list-item';
     div.onclick = ()=>abrirTurma(t.id);
-    div.innerHTML = `<div><div class="name">${esc(t.nome)}</div><div class="meta">${n} aluno${n===1?'':'s'}</div></div><div class="chev">›</div>`;
+    div.innerHTML = `<div><div class="name">${esc(t.nome)}</div><div class="meta">${n} aluno${n===1?'':'s'}</div></div><button class="ghost" style="flex:none; padding:6px 10px; font-size:12px;" onclick="event.stopPropagation(); gerarRelatorioTurma('${t.id}')">PDF turma</button><div class="chev">›</div>`;
     list.appendChild(div);
   });
 }
@@ -568,7 +568,7 @@ function renderAlunos(){
     const notas = correcoes.filter(c=>c.alunoId===a.id);
     const div = document.createElement('div');
     div.className = 'list-item';
-    div.innerHTML = `<div><div class="name">${esc(a.nome)}</div><div class="meta">${notas.length} correção${notas.length===1?'':'ões'}</div></div><button class="ghost" style="flex:none; padding:6px 12px;" onclick="event.stopPropagation(); editarNomeAluno('${a.id}')">✎ Editar</button>`;
+    div.innerHTML = `<div><div class="name">${esc(a.nome)}</div><div class="meta">${notas.length} correção${notas.length===1?'':'ões'}</div></div><button class="ghost" style="flex:none; padding:6px 10px; font-size:12px;" onclick="event.stopPropagation(); gerarRelatorioAluno('${a.id}')">PDF</button><button class="ghost" style="flex:none; padding:6px 10px; font-size:12px;" onclick="event.stopPropagation(); editarNomeAluno('${a.id}')">✎</button>`;
     list.appendChild(div);
   });
 }
@@ -1275,6 +1275,128 @@ function gerarRelatorioPDF(provaId){
     });
 
   doc.save(`${prova.nome.replace(/[^a-zA-Z0-9]+/g,'_')}.pdf`);
+}
+
+function gerarRelatorioTurma(turmaId){
+  const turma = turmas.find(t=>t.id===turmaId);
+  if(!turma){ toast('Turma não encontrada.'); return; }
+  const provasDaTurma = provas.filter(p=>p.turmaId===turmaId);
+  const alunosDaTurma = alunos.filter(a=>a.turmaId===turmaId).slice().sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
+  if(!provasDaTurma.length){ toast('Cadastre pelo menos uma prova nessa turma antes.'); return; }
+  if(!alunosDaTurma.length){ toast('Cadastre pelo menos um aluno nessa turma antes.'); return; }
+  if(!window.jspdf){ toast('Não consegui carregar o gerador de PDF. Confira a internet.'); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const dataGeracao = new Date().toLocaleDateString('pt-BR');
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(16);
+  doc.text(`Relatório — ${turma.nome}`, 14, 18);
+  doc.setFont('helvetica','normal'); doc.setFontSize(10.5);
+  doc.text(`${provasDaTurma.length} prova(s) · ${alunosDaTurma.length} aluno(s) · Gerado em ${dataGeracao}`, 14, 25);
+
+  const head = [['Aluno', ...provasDaTurma.map(p=>p.nome), 'Média']];
+  const body = alunosDaTurma.map(a=>{
+    const notasProva = provasDaTurma.map(p=>{
+      const c = correcoes.find(cc=>cc.alunoId===a.id && cc.provaId===p.id);
+      return c ? c.nota : null;
+    });
+    const validas = notasProva.filter(n=>n!==null);
+    const media = validas.length ? (validas.reduce((s,n)=>s+n,0)/validas.length).toFixed(2).replace('.', ',') : '-';
+    return [a.nome, ...notasProva.map(n=> n===null ? '-' : String(n).replace('.', ',')), media];
+  });
+
+  doc.autoTable({
+    startY: 31,
+    head,
+    body,
+    theme: 'grid',
+    headStyles: { fillColor: [27,42,74], fontSize: 9 },
+    styles: { font: 'helvetica', fontSize: 9 }
+  });
+
+  let y = doc.lastAutoTable.finalY + 9;
+  doc.setFont('helvetica','bold'); doc.setFontSize(11);
+  doc.text('Média por prova:', 14, y);
+  y += 6;
+  doc.setFont('helvetica','normal'); doc.setFontSize(10);
+  provasDaTurma.forEach(p=>{
+    const notas = correcoes.filter(c=>c.provaId===p.id && c.turmaId===turmaId).map(c=>c.nota);
+    const media = notas.length ? (notas.reduce((s,n)=>s+n,0)/notas.length).toFixed(2).replace('.', ',') : '-';
+    if(y > 275){ doc.addPage(); y = 18; }
+    doc.text(`${p.nome}: média ${media} (${notas.length}/${alunosDaTurma.length} corrigidas)`, 14, y);
+    y += 6;
+  });
+
+  doc.save(`${turma.nome.replace(/[^a-zA-Z0-9]+/g,'_')}_relatorio_turma.pdf`);
+}
+
+function gerarRelatorioAluno(alunoId){
+  const aluno = alunos.find(a=>a.id===alunoId);
+  if(!aluno){ toast('Aluno não encontrado.'); return; }
+  const turma = turmas.find(t=>t.id===aluno.turmaId);
+  const itens = correcoes.filter(c=>c.alunoId===alunoId).slice().sort((a,b)=> new Date(a.criadoEm) - new Date(b.criadoEm));
+  if(!itens.length){ toast('Esse aluno ainda não tem correções.'); return; }
+  if(!window.jspdf){ toast('Não consegui carregar o gerador de PDF. Confira a internet.'); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const dataGeracao = new Date().toLocaleDateString('pt-BR');
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(16);
+  doc.text(aluno.nome, 14, 18);
+  doc.setFont('helvetica','normal'); doc.setFontSize(10.5);
+  doc.text(`Turma: ${turma ? turma.nome : '-'}   ·   Gerado em ${dataGeracao}`, 14, 25);
+
+  const linhas = itens.map(c=>[
+    c.tema || 'Sem título',
+    new Date(c.criadoEm).toLocaleDateString('pt-BR'),
+    `${String(c.nota).replace('.', ',')} / ${c.valor}`
+  ]);
+
+  doc.autoTable({
+    startY: 31,
+    head: [['Prova','Data','Nota']],
+    body: linhas,
+    theme: 'grid',
+    headStyles: { fillColor: [27,42,74] },
+    styles: { font: 'helvetica', fontSize: 10.5 }
+  });
+
+  const mediaPercentual = itens.reduce((s,c)=> s + (c.nota / c.valor), 0) / itens.length;
+  const mediaEquivalente = (mediaPercentual * 10).toFixed(2).replace('.', ',');
+  doc.setFont('helvetica','bold'); doc.setFontSize(11);
+  doc.text(`Média geral (equivalente a 0-10): ${mediaEquivalente}`, 14, doc.lastAutoTable.finalY + 9);
+
+  itens.forEach(c=>{
+    doc.addPage();
+    let y = 18;
+    doc.setFont('helvetica','bold'); doc.setFontSize(13);
+    doc.text(`${c.tema || 'Sem título'} — Nota: ${c.nota} / ${c.valor}`, 14, y);
+    y += 9;
+    doc.setFontSize(10.5);
+
+    const escreverQuestao = (rotulo, comentario)=>{
+      if(y > 265){ doc.addPage(); y = 18; }
+      doc.setFont('helvetica','bold');
+      doc.text(rotulo, 14, y);
+      y += 5;
+      doc.setFont('helvetica','normal');
+      const partido = doc.splitTextToSize(comentario || '', 180);
+      doc.text(partido, 14, y);
+      y += partido.length * 4.8 + 4;
+    };
+
+    (c.resultado.objetivas || []).forEach(q=>{
+      escreverQuestao(`Questão ${q.numero} — ${q.correta ? 'Certa' : 'Errada'} (marcou ${q.resposta_aluno || '-'})`, q.comentario);
+    });
+    (c.resultado.discursivas || []).forEach(q=>{
+      const pct = Math.round((q.fracao || 0) * 100);
+      escreverQuestao(`Questão ${q.numero} — ${pct}%`, q.comentario);
+    });
+  });
+
+  doc.save(`${aluno.nome.replace(/[^a-zA-Z0-9]+/g,'_')}_relatorio.pdf`);
 }
 
 function esc(s){
