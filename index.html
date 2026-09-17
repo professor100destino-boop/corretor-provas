@@ -300,6 +300,17 @@
       </p>
     </div>
     <div class="card">
+      <h2>Rigor da correção</h2>
+      <p class="muted">Como a IA deve avaliar as respostas discursivas.</p>
+      <div class="field" style="margin-top:10px;">
+        <select id="rigorSelect" onchange="salvarRigor()">
+          <option value="generoso">Mais generoso — valoriza a ideia principal, mesmo sem todos os detalhes</option>
+          <option value="equilibrado">Equilibrado (padrão)</option>
+          <option value="rigoroso">Mais rigoroso — exige resposta completa e bem fundamentada</option>
+        </select>
+      </div>
+    </div>
+    <div class="card">
       <h2>Dados salvos</h2>
       <p class="muted">Turmas, alunos e correções ficam guardados só neste navegador/celular. Se limpar os dados do site ou trocar de aparelho, eles se perdem.</p>
       <p class="muted" style="margin-top:10px;">Pra levar os dados pra outro celular, exporte um arquivo aqui e importe ele no outro aparelho.</p>
@@ -422,6 +433,13 @@ function irPara(tab){
 async function carregarApiKeyInput(){
   const key = await getStore('apiKey', '');
   document.getElementById('apiKeyInput').value = key;
+  const rigor = await getStore('rigor', 'equilibrado');
+  document.getElementById('rigorSelect').value = rigor;
+}
+async function salvarRigor(){
+  const val = document.getElementById('rigorSelect').value;
+  await saveStore('rigor', val);
+  toast('Rigor da correção atualizado!');
 }
 async function salvarApiKey(){
   const val = document.getElementById('apiKeyInput').value.trim();
@@ -819,6 +837,12 @@ async function enviarCorrecao(){
   document.getElementById('screen-loading').classList.add('active');
 
   const aluno = alunos.find(a=>a.id===alunoId);
+  const rigor = await getStore('rigor', 'equilibrado');
+  const instrucaoRigor = {
+    generoso: 'Seja generoso na correção das discursivas: dê fração alta (0.8 a 1) sempre que o aluno demonstrar que entendeu a ideia principal pedida, mesmo que a resposta seja curta, incompleta em detalhes secundários ou mal redigida. Só dê fração baixa se a resposta estiver realmente errada, em branco ou totalmente fora do tema.',
+    equilibrado: 'Avalie as discursivas de forma equilibrada: reconheça o entendimento do aluno mesmo quando a resposta não é perfeita, mas não dê nota máxima para respostas incompletas ou superficiais.',
+    rigoroso: 'Seja rigoroso na correção das discursivas: só dê fração alta (acima de 0.8) para respostas completas, precisas e bem fundamentadas, que cubram todos os aspectos pedidos no enunciado. Descontos por imprecisão, falta de detalhes ou argumentação rasa.'
+  }[rigor] || '';
 
   const imageBlocks = fotosAtuais.map(src=>({
     type: 'image',
@@ -829,7 +853,7 @@ async function enviarCorrecao(){
 
 Sua tarefa:
 1. Para cada questão objetiva (múltipla escolha), identifique a alternativa marcada pelo aluno (procure círculos, "x" ou marcações) e determine qual é a alternativa correta, usando o texto de referência da própria prova e seu conhecimento histórico.
-2. Para cada questão discursiva, leia a resposta manuscrita do aluno e avalie a qualidade e correção do conteúdo, considerando o que foi pedido no enunciado. Dê uma fração de acerto de 0 a 1 (ex: 1 = resposta completa e correta, 0.5 = parcialmente correta ou incompleta, 0 = errada ou em branco).
+2. Para cada questão discursiva, leia a resposta manuscrita do aluno e avalie a qualidade e correção do conteúdo, considerando o que foi pedido no enunciado. Dê uma fração de acerto de 0 a 1 (ex: 1 = resposta completa e correta, 0.5 = parcialmente correta ou incompleta, 0 = errada ou em branco). ${instrucaoRigor}
 3. Escreva um comentário curto (máximo 15 palavras) para cada questão, em português, direto e objetivo.
 
 Responda APENAS com um JSON válido, sem markdown, sem texto antes ou depois, no formato exato:
