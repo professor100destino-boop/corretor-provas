@@ -431,12 +431,13 @@ async function salvarApiKey(){
 }
 
 // ---------- exportar / importar dados ----------
-function exportarDados(){
+async function exportarDados(){
+  const apiKey = await getStore('apiKey', '');
   const pacote = {
     tipo: 'ja-corrigiu-backup',
-    versao: 1,
+    versao: 2,
     exportadoEm: new Date().toISOString(),
-    turmas, alunos, provas, correcoes
+    turmas, alunos, provas, correcoes, apiKey
   };
   const blob = new Blob([JSON.stringify(pacote, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -448,7 +449,7 @@ function exportarDados(){
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
-  toast('Backup baixado!');
+  toast('Backup baixado! Guarde com cuidado, ele contém sua chave da API.');
 }
 
 function importarDados(ev){
@@ -472,8 +473,9 @@ function importarDados(ev){
     const qtdTurmas = pacote.turmas.length;
     const qtdAlunos = (pacote.alunos || []).length;
     const qtdCorrecoes = (pacote.correcoes || []).length;
+    const temChave = !!pacote.apiKey;
     confirmarAcao(
-      `Importar vai SUBSTITUIR tudo que está salvo neste celular por: ${qtdTurmas} turma(s), ${qtdAlunos} aluno(s) e ${qtdCorrecoes} correção(ões) do arquivo. Continuar?`,
+      `Importar vai SUBSTITUIR tudo que está salvo neste celular por: ${qtdTurmas} turma(s), ${qtdAlunos} aluno(s), ${qtdCorrecoes} correção(ões)${temChave ? ' e a chave da API' : ''} do arquivo. Continuar?`,
       async ()=>{
         turmas = pacote.turmas || [];
         alunos = pacote.alunos || [];
@@ -483,6 +485,9 @@ function importarDados(ev){
         await saveStore('alunos', alunos);
         await saveStore('provas', provas);
         await saveStore('correcoes', correcoes);
+        if(pacote.apiKey){
+          await saveStore('apiKey', pacote.apiKey);
+        }
         toast('Dados importados com sucesso!');
         renderTurmas();
       }
